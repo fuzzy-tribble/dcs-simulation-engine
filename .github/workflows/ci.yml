@@ -1,0 +1,43 @@
+name: CI
+
+# TODO: re-enable on push/pr after initial setup
+# on:
+#   push:
+#   pull_request:
+
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10.13"
+          cache: "poetry"  # caches based on poetry.lock
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Install dependencies (incl. dev)
+        run: poetry install --with dev
+
+      # ---- Formatting (Black) ----
+      - name: Black (check only)
+        run: poetry run black --check --diff .
+
+      # ---- Linting (Ruff) ----
+      - name: Ruff (lint)
+        run: poetry run ruff check .
+
+      # # ---- Type checks (Mypy) ----
+      # - name: Mypy
+      #   run: poetry run mypy .
+      # TODO: pre v002 fix mypy issues and re-enable
+
+      # ---- Tests (Pytest) ----
+      - name: Run pytest (exclude slow tests)
+        run: poetry run pytest -vv -m "not slow and not manual and not external"

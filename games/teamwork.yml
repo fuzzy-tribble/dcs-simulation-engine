@@ -1,0 +1,164 @@
+name: Collaborative Navigation
+description: |
+  A game where a player character (PC) and non-player character (NPC) collaborate to achieve a shared goal (optionally over multiple sessions). It is useful to measure how well characters with divergent abilities work together toward a shared objective.
+
+character_selector:
+  pc: 
+    valid:
+      characters: { hid: 'human-normative' }
+  npc:
+    valid:
+      characters: { $or: [ { common_descriptors: { $regex: /human-?like/i } }, { common_descriptors: { $regex: /ambulatory/i } }, { hid: 'robotic-dog' } ] }
+
+graph_config:
+  name: collaborative_nav_graph
+  description: A graph for collaborative navigation between a PC and NPC to achieve a shared goal.
+nodes:
+    - name: enter_message
+      kind: builtin.message
+      config:
+        message: |
+          # Welcome
+          In this game you collaborate with another character to {{ goal }}. Work together to accomplish the goal.
+    - name: exit_message
+      kind: builtin.message
+      config:
+        message: |
+          Game exited with reason: {{ exit_reason }}
+    - name: complete_message
+      kind: builtin.message
+      config:
+        message: |
+          # Game Complete
+          The game has completed after {{ total_turns }} total turns and {{ elapsed_time }} seconds of playtime.
+    - name: help_message
+      kind: builtin.message
+      config:
+        message: |
+          # How to Play
+          ...
+    - name: checkpoint
+      kind: builtin.checkpoint
+      provider: openrouter
+      model: deepseek/deepseek-chat-v3-0324
+      system_template: |
+        Your task is to validate whether the character's next action is valid according to the following rubric:
+
+          1.	Feasibility Rule: The action must be physically and logically possible according to the game world and character abilities. Reject if its not feasible.
+          2.	In-Character Rule: The action must be consistent with the character’s abilities. Reject if it’s out of character, uses abilities the character doesn't have.
+          3.	Relevance Rule: The action must be on-topic and make sense in context.
+          4.	Explicit Action or Sensing: The player must clearly describe what the character does or which sense they use (sight, hearing, smell, etc.).
+          5.	No Meta or Vague Actions: Reject vague or omniscient actions such as “I figure out where I am” or “I learn everything about the room.” Actions must be concrete and specific.
+          6.	No Adversarial Inputs: Reject harmful, disruptive, or game-breaking actions.
+          7.  Actions shouldn't be overly complex: Reject long, complex, multi-step actions. Actions are intended to represent a single step in a turn taking exchange.
+          8.  End Game Condition: If the action indicates the PC is leaving or ending the interaction or has tried more than 2 times to create a correct action set "end_game" to true.
+
+          {% if message_draft.role == 'pc' %}
+            PC Abilities:
+            {{ pc.abilities }}
+          {% elif message_draft.role == 'npc' %}
+            NPC Abilities:
+            {{ npc.abilities }}
+          {% endif %}
+          
+          The actions taken so far are:
+          {{messages}}
+          
+          The proposed next action is:
+          {{message_draft.content}}
+
+          Output format: {
+            "valid": bool,                   # is the proposed action valid?
+            "reason": str?                   # if invalid, provide reason
+          }
+    - name: update
+      kind: custom
+      provider: openrouter
+      model: deepseek/deepseek-chat-v3-0324
+      system_template: |
+        You are role-playing a non-player character (NPC): {{npc.hid}} — {{npc.short_description}} in a scene with a player character (PC): {{pc.hid}} — {{pc.short_description}}
+
+        Describe how the scene updates including the NPC's next action, if any. Only act for the NPC and make sure any actions you describe are consistent the character's abilities and context. 
+        
+        - Refer to the PC as "you"
+
+        - Refer to the NPC as the PC would perceive them based on their abilities. 
+
+        For example, 
+          - If the PC can see and recognize human forms and the NPC has a human form but can't see, a next valid action could be "The man turns his head and looks in your direction but his eyes do not meet yours."
+          - If the PC can see and recognize human forms and the NPC can crawl and sense light, a next valid next action could be "The small brown worm crawls towards the edge of the petri dish."
+          - If the PC can not move or see but can hear and the NPC is human, you could say "You hear footsteps approaching from behind you."
+          - If the PC can perceive textual/keyboard input, you could set up a computer/typing scene like "You sit in front of a keyboard and screen. A chat-like interface is open."
+
+        ----
+
+        PC Abilities:
+        {{pc.abilities}}
+
+        NPC Abilities:
+        {{npc.abilities}}
+
+        ----
+
+        {% if len(messages) == 0 %}
+        Generate an opening scene to start the collaboration.
+        {% else %}
+        Interactions so far:
+        {{ messages }}
+
+        {% if valid == false %}
+        You tried replying with: {{message_draft.content}} but it was invalid because {{ reason }}. Try again.
+        {% endif %}
+
+        If there is no message history, describe a 1-2 sentence opening scene where both the PC and NPC are present, setting the stage for a potential interaction.
+        
+        If you are uncertain what action to take, or your abilities don't allow you to act in response to PC's action you can output "Nothing changes."
+
+        Output format: {
+          "message_draft": {
+            "role": "npc",
+            "content": str                   # the NPC's next action in response to the PC
+          }
+          "valid": null,
+          "reason": null
+        }
+  edges:
+    - from: __START__
+      to: 
+        conditional:
+          - if: "((lifecycle_status == 'ENTER'))"
+            then: enter_message
+          - if: "((lifecycle_status == 'EXIT'))"
+            then: exit_message
+          - if: "((lifecycle_status == 'COMPLETE'))"
+            then: complete_message
+          - if: "((lifecycle_status == 'HELP'))"
+            then: help_message
+          - if: "((lifecycle_status == 'UPDATE'))"
+            then: checkpoint
+          
+    - from: enter_message
+      to: checkpoint
+
+    - from: exit_message
+      to: __END__
+
+    - from: complete_message
+      to: __END__
+
+    - from: help_message
+      to: __END__
+
+    - from: checkpoint
+      to:
+        conditional:
+          - if: "${valid} == false and ${retries} < ${retry_limits[message_draft.role]}"
+            then: builtin.retry
+          - elif: "${valid} == false and ${retries} > ${retry_limits[message_draft.role]}"
+            then: exit_message
+          - elif: "${valid} == true and ${message_draft.role} == 'npc'"
+            then: __END__
+          - else: update
+
+    - from: update
+      to: checkpoint

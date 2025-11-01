@@ -1,0 +1,40 @@
+characters:
+  - uid: low-viz
+    short_description: A human with low vision and a really witty and quirky personality.
+    abilities:
+      Grew up in a supportive environment with access to resources.
+  - uid: norma-normal
+    short_description: A normal human with a balanced and realistic perspective.
+    abilities:
+      Grew up in a suburban environment with access to education and resources.
+graph:
+  name: simple-demo
+  config:
+    nodes:
+      - name: scene_setup_agent
+        provider: openrouter
+        model: openai/gpt-oss-20b:free
+        additional_kwargs: {}
+        system_prompt_template: "Reply with 'SETUP_SCENE' ONLY."
+        state_permissions:
+          read: []
+          write: ["agent_artifacts"]
+      - name: scene_continuation_agent
+        provider: openrouter
+        model: openai/gpt-oss-20b:free
+        additional_kwargs: {}
+        system_prompt_template: "Reply with 'CONTINUE_SCENE' ONLY."
+        state_permissions:
+          read: ["messages"]
+          write: ["messages"]
+    edges:
+      - from: __start__
+        to:
+          conditional:
+            - if: "len(messages) == 0"
+              then: scene_setup_agent
+            - else: scene_continuation_agent
+      - from: scene_setup_agent
+        to: __end__
+      - from: scene_continuation_agent
+        to: __end__

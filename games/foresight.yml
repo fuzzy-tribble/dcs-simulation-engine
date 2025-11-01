@@ -1,0 +1,83 @@
+### METADATA ###
+name: Foresight
+version: 1.0.0
+authors: ["DCS"]
+description: |
+  A game where players have to predict the next action of another character based on their experiential knowledge of that character. This is useful for measuring how quickly and accurately players learn to model other cognitive systems that are different from their own.
+
+### ACCESS SETTINGS ###
+access_settings:
+  user:
+    valid:
+      players: {} # requires consent/signed
+
+### DATA COLLECTION SETTINGS ###
+data_collection_settings:
+  save_runs: true
+
+character_settings:
+  pc: 
+    valid:
+      characters: { "where": { "hid": 'human-normative' } }
+  npc:
+    valid:
+      characters: {}
+graph_config:
+  name: foresight_graph
+  description: A PC engages with a NPC in as many scenes and actions as desired. When the PC feels confident, it uses the '/predict' command to submit a prediction about the NPCs next action. We collect data about the prediction accuracy over time.
+  nodes:
+    - name: check_predict
+      kind: builtin.command_filter
+      kwargs:
+        command_handlers:
+          haystack: message_draft.content
+          regex: [/\/predict/i, /\\predict/i]
+  edges:
+    - from: __START__
+      to: __END__
+    # - from: __START__
+    #   to: 
+    #     conditional:
+    #       - if: "((lifecycle_status == 'ENTER'))"
+    #         then: builtin.message # runs the message function with default message for game state
+    #       - if: "((lifecycle_status == 'EXIT'))"
+    #         then: exit_message
+    #       - if: "((lifecycle_status == 'COMPLETE'))"
+    #         then: complete_message
+    #       - if: "((lifecycle_status == 'HELP'))"
+    #         then: help_message
+    #       - if: "((lifecycle_status == 'UPDATE'))"
+    #         then: check_predict
+          
+    # - from: enter_message
+    #   to: check_predict
+
+    # - from: check_predict
+    #   to:
+    #     conditional:
+    #       - if: "${is_command} == true"
+    #         then: __END__
+    #       - else: checkpoint
+
+    # - from: exit_message
+    #   to: __END__
+
+    # - from: complete_message
+    #   to: __END__
+
+    # - from: help_message
+    #   to: __END__
+
+    # - from: checkpoint
+    #   to:
+    #     conditional:
+    #       - if: "${valid} == false and ${retries} < ${retry_limits[message_draft.role]}"
+    #         then: builtin.retry
+    #       - elif: "${valid} == false and ${retries} > ${retry_limits[message_draft.role]}"
+    #         then: exit_message
+    #       - elif: "${valid} == true and ${message_draft.role} == 'npc'"
+    #         then: __END__
+    #       - else: update
+
+    # - from: update
+    #   to: checkpoint

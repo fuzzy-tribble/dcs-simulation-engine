@@ -1,0 +1,123 @@
+"""Graph state schema definition."""
+
+from __future__ import annotations
+
+from typing import Annotated, Any, Literal, Optional, cast
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
+from loguru import logger
+from pydantic import TypeAdapter, ValidationError
+from typing_extensions import (
+    TypedDict,
+)
+
+
+def make_state(overrides: dict[str, Any] | None = None) -> StateSchema:
+    """Create a StateSchema with sensible defaults and optional overrides."""
+    overrides = dict(overrides or {})
+
+    # Other defaults + warnings
+    if "lifecycle" not in overrides:
+        logger.warning("No lifecycle provided; defaulting to INIT.")
+    if "retry_limits" not in overrides:
+        logger.debug("No retry_limits provided; defaulting to {'user': 3, 'ai': 3}.")
+
+    base: StateSchema = {
+        "events": [],
+        "lifecycle": "INIT",
+        "exit_reason": "",
+        "special_user_message": None,
+        "event_draft": None,
+        "invalid_reason": None,
+        "retries": {"user": 0, "ai": 0},
+        "retry_limits": {"user": 3, "ai": 3},
+        "forms": None,
+    }
+
+    # Warn & drop unknown override keys
+    # Prefer model fields if available (pydantic v2 or v1), else fall back to base keys.
+    try:
+        allowed_keys = set(
+            getattr(StateAdapter, "model_fields", None)
+            and StateAdapter.model_fields.keys()
+        ) or set(getattr(StateAdapter, "__fields__", {}).keys())
+        if not allowed_keys:
+            allowed_keys = set(base.keys())
+    except Exception:
+        allowed_keys = set(base.keys())
+
+    unknown = set(overrides) - allowed_keys
+    if unknown:
+        logger.warning(
+            "Unknown override key(s) ignored: %s", ", ".join(sorted(unknown))
+        )
+        for k in unknown:
+            overrides.pop(k, None)
+
+    state = cast(StateSchema, {**base, **overrides})
+    try:
+        return cast(StateSchema, StateAdapter.validate_python(state))
+    except ValidationError as e:
+        logger.error("Invalid StateSchema: %s", e)
+        raise
+
+
+class Retries(TypedDict):
+    """Retry limits for players.
+
+    Note: using user and ai makes it easier to use
+    built-in openrouter and langgraph message functionalities
+
+    """
+
+    user: int  # player (pc)
+    ai: int  # simulator (npc)
+
+
+class SpecialUserMessage(TypedDict):
+    """Special user message structure."""
+
+    type: Literal["info", "warning", "error"]
+    content: str
+
+
+class Form(TypedDict):
+    """Form structure for collecting user input."""
+
+    questions: list[FormQuestion]
+
+
+class FormQuestion(TypedDict):
+    """Form question structure."""
+
+    key: str
+    text: str
+    answer: str
+
+
+class StateSchema(TypedDict, total=True):
+    """Schema for the shared simulation state.
+
+    A few langgraph functionality notes:
+    - Langgraph graph is invoked with this overall state which is a TypedDict
+    - Each node gets this state input and returns a dict with keys that langgraph
+    adds/updates it with using the defined reducers. If no reducer is defined langgraph
+      overwrites the key.
+
+    """
+
+    events: Annotated[list[BaseMessage], add_messages]
+    lifecycle: Literal["INIT", "ENTER", "UPDATE", "EXIT", "COMPLETE"]
+    exit_reason: str
+
+    # ie. instructional messages, etc that are not part of the main message flow
+    special_user_message: Optional[SpecialUserMessage]
+    event_draft: Optional[dict[str, Any]]
+    invalid_reason: Optional[str]
+    retries: Retries
+    retry_limits: Retries  # TODO: move to context
+    forms: Optional[dict[str, Form]]
+
+
+StateAdapter = TypeAdapter(StateSchema)

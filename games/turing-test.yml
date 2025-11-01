@@ -1,0 +1,64 @@
+name: Turing
+description: |
+  A game where a human-like player (PC) reads a interaction transcript and guesses if the action described is from an actor or from the real character. It is useful for measuring how well a character is being represented by the simulation engine.
+character_selector:
+  pc:
+    valid:
+      where: { hid: 'human-normative'}
+  npc:
+    valid:
+      where: {}
+
+graph_config:      
+  name: turing_graph
+  description: A graph for a Turing test style interaction where a player guesses if an action is from an actor or the real character.
+  nodes:
+    - name: start_message
+      kind: builtin.message
+    - name: exit_message
+      kind: builtin.message
+    - name: complete_message
+      kind: builtin.message
+    - name: help_message
+      kind: builtin.message
+    - name: qa_form
+      kind: builtin.form
+      config:
+        title: End of Interaction Survey
+        description: Please fill out this survey about your understanding of the NPC's goals to complete the game.
+        fields:
+        # TODO: update fields so I can run validation of player input (bool, str, regex match, etc.)
+        # TODO: think about and make sure this will work with a list of transcripts
+          - name: player_guess
+            regex: ^(?:(?=.*actor)(?!.*real)|(?=.*real)(?!.*actor)).*$
+            label: Do you think the action was performed by the actor or the real character:\n\n {{transcripts.next}}?
+            required: true
+  edges:
+    - from: __START__
+      to: 
+        conditional:
+          - if: "((lifecycle_status == 'ENTER'))"
+            then: start_message
+          - if: "((lifecycle_status == 'EXIT'))"
+            then: exit_message
+          - if: "((lifecycle_status == 'COMPLETE'))"
+            then: complete_message
+          - if: "((lifecycle_status == 'HELP'))"
+            then: help_message
+          - if: "((lifecycle_status == 'UPDATE'))"
+            then: checkpoint
+          
+    - from: start_message
+      to: qa_form
+
+    - from: exit_message
+      to: __END__
+
+    - from: complete_message
+      to: end_form
+
+    - from: end_form
+      to: __END__
+
+    - from: help_message
+      to: __END__

@@ -1,0 +1,74 @@
+*temp
+*tmp
+stderr
+
+database_backups
+
+*creds.json
+*.pem
+
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Test, coverage, and profiling reports
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Poetry, pipenv, pip, etc.
+poetry.lock
+Pipfile.lock
+
+# Editor/project files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.manifest
+
+# Data/logs
+*.log
+data/*.csv
+data/*.tsv
+data/*.h5
+data/*.json
+data/*.sqlite
+data/*.db
+
+logs/
+output/
+*.log
+
+# Environment variables
+.env
+
+# Exclude vscode workspace configuration 
+# (easier for devs to contribute with same env settings)
+!.vscode/

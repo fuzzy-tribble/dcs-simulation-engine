@@ -1,0 +1,12 @@
+handlers:
+  # console, only ERROR and above, with file/line
+  - sink: stderr
+    level: ERROR
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level:^7} | {file.name}:{line} | {message}"
+  # debug‐level file, rotated daily, keep 7 days, zip old
+  - sink: "logs/cli_{time:YYYYMMDD}.log"
+    level: DEBUG
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level:^7} | {file.name}:{line} | {message}"
+    rotation: "00:00"
+    retention: "7 days"
+    compression: "zip"
