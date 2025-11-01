@@ -37,7 +37,7 @@ coverage.xml
 .pytest_cache/
 
 # Poetry, pipenv, pip, etc.
-poetry.lock
+# poetry.lock
 Pipfile.lock
 
 # Editor/project files
