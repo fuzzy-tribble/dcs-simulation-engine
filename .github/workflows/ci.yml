@@ -24,6 +24,11 @@ jobs:
         with:
           poetry-version: "2.1.4"
 
+      # Poetry doesn't add itself to PATH automatically
+      # so we do it manually here
+      - name: Ensure Poetry on PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Install dependencies (incl. dev)
         run: poetry install --with dev
 

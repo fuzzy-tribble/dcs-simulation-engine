@@ -1,4 +1,4 @@
-site_name: Di Simulation Engine Docs
+site_name: DCS Simulation Engine Docs
 theme:
   name: material
 plugins:
