@@ -133,6 +133,7 @@ def on_consent_submit(state: AppState, field_names: List[str], *field_values: Li
     - creates player with consent data, issues access token
     - takes landing container and consent container and sets visibility to show landing and not consent form.
     """
+    # TODO: validate consent fields and if not valid return error message text below
     consent_data = dict(zip(field_names, field_values))
     logger.debug(f"on_consent_submit called with field_values: {consent_data}")
     # create player with consent data, issue access token
