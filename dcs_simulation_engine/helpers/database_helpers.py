@@ -248,7 +248,6 @@ def create_player(
     *,
     player_id: Optional[Union[str, Any]] = None,
     issue_access_key: bool = False,
-    return_raw_key: bool = False,
 ) -> Tuple[str, Optional[str]]:
     """Insert or upsert a player."""
     if not isinstance(player_data, dict):

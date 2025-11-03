@@ -77,7 +77,7 @@ class AccessSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     user: ValiditySelector
-
+    consent_form: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 class CharacterSettings(BaseModel):
     """Defines the player and non-player character selection logic."""

@@ -127,6 +127,7 @@ class RunManager(BaseModel):
         pc_choice: Optional[str] = None,
         npc_choice: Optional[str] = None,
         access_key: Optional[str] = None,
+        player_id: Optional[str] = None,
     ) -> "RunManager":
         """Create a new run with default or provided parameters."""
         if isinstance(game, str):
@@ -155,7 +156,6 @@ class RunManager(BaseModel):
 
         # Setup player info from access settings
         try:
-            player_id: Optional[str] = None
             if access_key:
                 logger.debug("Access key provided; attempting to get player ID.")
                 player_id = dbh.get_player_id_from_access_key(access_key)

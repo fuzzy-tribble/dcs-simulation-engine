@@ -9,3 +9,4 @@ It is NOT a full fleged front end.
 If more complex features are needed, consider building a frond end in another repo
  and using this as the API server for the simualtion engine.
 """
+# TODO: gradio has a built-in API (see "Use via API" as bottom of rendered page). Condier using gradio apo for demo instead of hosting ourselves.

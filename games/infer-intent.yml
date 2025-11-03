@@ -17,6 +17,40 @@ access_settings:
       players:
         where:
           consent_signed: true
+  consent_form:
+    preamble: |
+      You are being asked to be a volunteer in a research study. You may not participant if you are under 18-years-old or located outside of the United States. The purpose of this study is to assess one’s ability to infer goals of various simulated cognitive systems, including humans and AI. You will be asked to interact with an unknown cognitive system and attempt to infer its goals. It will take approximately an hour to complete.
+
+      Identifiable information is only collected for voluntary follow-up; it is otherwise anonymous. Any identifiable information will be coded. The risks involved are no greater than those involved in daily activities. You will receive one SONA credit for this study.    
+
+      We will comply with any applicable laws and regulations regarding confidentiality. To make sure that this research is being carried out in the proper way, the Georgia Institute of Technology IRB may review study records. The Office of Human Research Protections may also look at study records. If you have any questions about the study, you may contact the following people:      
+
+      - Dr. Bruce Walker: bruce.walker@psych.gatech.edu  
+      - McKinnley Workman: mworkman9@gatech.edu  
+      - Kalia McManus: Kalia.McManus@gatech.edu  
+      
+      If you have any questions about your rights as a research subject, you may contact Georgia Institute of Technology Office of Research Integrity Assurance at IRB@gatech.edu. Thank you for participating in this study.
+    questions:
+      - key: full_name
+        prompt: Please enter your full name.
+        answer: ''
+        answer_type: text
+      - key: email
+        prompt: Please enter your email address.
+        answer: ''
+        answer_type: email
+      - key: phone_number
+        prompt: Please enter your phone number.
+        answer: ''
+        answer_type: phone
+      - key: prior_experience
+        prompt: Do you have any prior expertise or experience interacting with people with diverse cognitive abilities (e.g., neurodivergent individuals)?
+        answer: ''
+        answer_type: text
+      - key: follow_up_consent
+        prompt: Do you consent to us reaching out to you for a voluntary follow-up?
+        answer: ''
+        answer_type: boolean
 
 ### DATA COLLECTION SETTINGS ###
 data_collection_settings:
