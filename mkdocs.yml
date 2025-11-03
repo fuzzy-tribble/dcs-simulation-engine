@@ -17,5 +17,6 @@ plugins:
 nav:
   - Home: index.md
   - Codebase: core_reference.md
+  # TODO: consider making API docs static
   - API (ReDoc): "http://127.0.0.1:8000/redoc"
   - API (Swagger UI): "http://127.0.0.1:8000/docs"

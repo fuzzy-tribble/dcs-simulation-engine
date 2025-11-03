@@ -15,12 +15,36 @@ from gradio.themes import Soft
 from dcs_simulation_engine.widget.handlers import on_load, on_send, poll_fn
 from dcs_simulation_engine.widget.state import AppState
 
-# TODO: pre v001 - fix stopping and displaying performance table
+from dcs_simulation_engine.core.game_config import GameConfig
+from dcs_simulation_engine.helpers.game_helpers import get_game_config
+from loguru import logger
+# TODO: gradio has a built-in API (see "Use via API" as bottom of rendered page). Condier using gradio apo for demo instead of hosting ourselves.
 
-
-def build_app() -> gr.Blocks:
+def build_app(game_name: str = "explore") -> gr.Blocks:
     """Build the Gradio UI for running simulations."""
+    logger.info(f"Building Gradio app for game '{game_name}'")
+
+    # try loading game config based on provided game
+    try:
+        game_config_path = get_game_config(game_name)
+        game_config = GameConfig.from_yaml(game_config_path)
+    except Exception as e:
+        gr.Error(f"Failed to load game config: {e}")
+        raise e
+    
+    # try to determine access mode from game config
+    try: 
+        access_gate_required = not bool(game_config.is_player_allowed(player_id=None))
+        logger.debug(f"Access gate required: {access_gate_required}")
+    except Exception as e:
+        gr.Error(f"Failed to determine access mode from game config: {e}")
+        raise e
+
     with gr.Blocks(title="DCS Simulation Engine", theme=Soft()) as app:
+        # WIP banner
+        gr.HTML('<div style="text-align:center" id="banner">🚧 <b>W.I.P.</b> This app is a work in progress. 🚧</div>')
+
+        # light/dark theme toggle
         gr.HTML(
             """    
                         <style>
@@ -61,31 +85,69 @@ def build_app() -> gr.Blocks:
                         """,
         )
 
+        # title
         gr.Markdown(
-            "<div style='text-align:center'>"
-            "<h1 style='margin-bottom:0'>DCS Simulation Engine</h1>"
-            "<p style='margin-top:6px;color:#666'>A text-based simulation engine for diverse types of cognitive systems.</p>"  # noqa: E501
-            "</div>"
+            f"""
+            <div style='text-align:center'>
+            <h1 style='margin-bottom:0'>{game_config.name.title()}</h1>
+            <p style='margin-top:6px;color:#666'>A DCS Simulation Engine Game</p>
+            </div>
+            """
         )
         mode_md = gr.Markdown("", elem_id="run-mode", visible=False)
 
         state = gr.State(AppState())
+        state.value["game_name"] = game_config.name
+        state.value["game_description"] = game_config.description
 
-        gate = gr.Group(visible=True)
-        with gate:
+        # Consent form
+        consent_form = gr.Group(visible=False)
+        with consent_form:
+            # 
+
+        # Ungated landing page (lets players in without access token)
+        ungated_landing = gr.Group(visible=not access_gate_required)
+        with ungated_landing:
+            # top spacing
+            with gr.Row():
+                gr.Markdown("&nbsp;&nbsp;")  # empty row for spacing
+            # bottom spacing
+            with gr.Row():
+                gr.Markdown("&nbsp;&nbsp;")  # empty row for spacing
+            # play button
+            with gr.Row():
+                with gr.Column(scale=1):
+                    pass
+                with gr.Column(scale=0, min_width=220):
+                    play_btn = gr.Button("Play", variant="primary")
+                with gr.Column(scale=1):
+                    pass
+                # spacing row
+            with gr.Row():
+                gr.Markdown("&nbsp;&nbsp;")  # empty row for spacing
+            ungated_msg = gr.Markdown("", visible=False)
+
+        # Gates landing page (requires access token)
+        gated_landing = gr.Group(visible=access_gate_required)
+        with gated_landing:
+            # TODO: add spacing (top and sides)
             gr.Markdown(
                 """
 ## Welcome
 
-This is a research project under the Sonification Lab at GaTech. We are studying how well different types of cognitive systems can understand and infer the goals of another cognitive systems as their modalities of interaction diverge from the "norm".
+Thank you for your interest in participating in our research. We are exploring how different types of cognitive systems interact with each other through gameplay.
 
-## Instructions
+You've been given this access link to play a game as part of your participation in our study.
 
-To participate in our research, you’ll need to **sign a consent form** to receive an **access token**.  
+### Instructions
 
-With a token, you can start in **Benchmarking Mode**, which lets us collect **anonymous data** about your **goal-inference** capabilities for various types of cognitive systems in our simulations.  
+To continue, please enter your access token below.
 
-Alternatively, you can try a **lower-fidelity Demo Mode** that lets you play around **without any data collection**.
+- If you don't have an access token, or you've lost it, you'll need to complete the participant consent form again.
+- For privacy and security reasons, we do not store access tokens and cannot recover them for you.
+- Please keep your token somewhere safe.
+
+*If you need help, have questions, or encounter any issues, please email McKinnley Workman at mworkman9@gatech.edu*
         """.strip()  # noqa: E501
             )
             with gr.Row():
@@ -97,8 +159,8 @@ Alternatively, you can try a **lower-fidelity Demo Mode** that lets you play aro
                     pass
                 with gr.Column(scale=3):
                     token_box = gr.Textbox(
-                        label="Access Token",
-                        placeholder="dcs-xxxx-xxxx-xxxx",
+                        label="", # don't show label
+                        placeholder="ak-xxxx-xxxx-xxxx",
                         lines=1,
                         type="password",
                     )
@@ -109,38 +171,25 @@ Alternatively, you can try a **lower-fidelity Demo Mode** that lets you play aro
                 with gr.Column(scale=1):
                     pass
                 with gr.Column(scale=0, min_width=220):
-                    benchmark_btn = gr.Button("Begin Benchmarking", variant="primary")
+                    play_btn = gr.Button("Play", variant="primary")
                 with gr.Column(scale=1):
                     pass
             with gr.Row():
                 gr.Markdown("&nbsp;&nbsp;")  # empty row for spacing
+                gr.Markdown("OR")
             with gr.Row():
-                # spacer, centered button, spacer
-                with gr.Column(scale=1):
-                    pass
-                with gr.Column(scale=0, min_width=220):
-                    demo_btn = gr.Button(
-                        "or Continue in Demo Mode", variant="secondary"
-                    )
-                with gr.Column(scale=1):
-                    pass
-
-            gate_msg = gr.Markdown("", visible=True)
+                gr.Markdown("&nbsp;&nbsp;")  # empty row for spacing
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        pass
+                    with gr.Column(scale=0, min_width=220):
+                        generate_ak_btn = gr.Button("Generate New Access Token", variant="secondary")
+                    with gr.Column(scale=1):
+                        pass
+        gate_msg = gr.Markdown("", visible=True)
 
         main = gr.Group(visible=False)
         with main:
-            # Load simulation button
-            # TODO - replace with progress bar and auto-load on enter
-            # with gr.Row():
-            #     with gr.Column(scale=2):
-            #         pass
-            #     with gr.Column(scale=1):
-            #         load_btn = gr.Button(
-            #             "Load New Simulation", variant="primary", visible=True
-            #         )
-            #     with gr.Column(scale=2):
-            #         pass
-
             # Setup + instructions panels
             instructions_md = gr.Markdown("")
 
@@ -174,19 +223,19 @@ Alternatively, you can try a **lower-fidelity Demo Mode** that lets you play aro
             pass
 
         # Wiring
-        demo_btn.click(
-            _enter_demo,
+        play_btn.click(
+            _enter_play,
             [state],
-            [state, gate, main, mode_md],
+            [state, ungated_landing, main, mode_md],
         ).then(  # <-- run loader next and show a progress bar
             load_with_progress,
             [state],
             [instructions_md, opening_md, state, chat],
         )
-        benchmark_btn.click(
-            _enter_benchmark,
+        generate_ak_btn.click(
+            _get_player_id_from_token,
             [token_box, state],
-            [state, gate, main, gate_msg, mode_md],
+            [state, gated_landing, main, gate_msg, mode_md],
         ).then(
             load_with_progress,
             [state],
@@ -196,56 +245,36 @@ Alternatively, you can try a **lower-fidelity Demo Mode** that lets you play aro
     return app
 
 
-def _enter_demo(
+def _enter_play(
     state: AppState,
 ) -> Tuple[AppState, gr.update, gr.update, gr.update]:
-    state["mode"] = "demo"
     state["access_token"] = None
 
-    # hide gate, show main
+    # hide gates, show main
     return (
         state,
         gr.update(visible=False),  # gate
         gr.update(visible=True),  # main
-        _render_mode(state),  # mode_md
     )
 
+def _create_access_token() -> str:
+    """Create a new access token."""
+    # display consent form
 
-def _enter_benchmark(token: str, state: AppState) -> Tuple[AppState]:
-    if not token.strip():
-        # keep gate open, show a small message
-        return (
-            state,
-            gr.update(visible=True),  # gate
-            gr.update(visible=False),  # main
-            "Please enter an access token.",  # gate_msg
-            _render_mode(state),  # mode_md
-        )
-    state["mode"] = "benchmark"
-    state["access_token"] = token.strip()
+def _get_player_id_from_token(
+    token: str, state: AppState
+) -> Tuple[AppState, gr.update, gr.update, gr.update, gr.update]:
+    state["access_token"] = token
+
+    # TODO: try to get player_id from access token
+
+    # hide gates, show main
     return (
         state,
-        gr.update(visible=False),
-        gr.update(visible=True),
-        "",
-        _render_mode(state),
+        gr.update(visible=False),  # gate
+        gr.update(visible=True),  # main
+        gr.update(value=""),  # clear gate message
     )
-
-
-def _render_mode(state: AppState) -> gr.update:
-    """Render the run mode string below the title."""
-    mode = state.get("mode")
-    if not mode:
-        return gr.update(visible=False)
-    return gr.update(
-        value=(
-            "<p style='text-align:center;color:#888;font-size:0.9em'>"
-            f"Run Mode: <strong>{mode.capitalize()}</strong>"
-            "</p>"
-        ),
-        visible=True,
-    )
-
 
 def load_with_progress(
     state: AppState, progress: gr.Progress = gr.Progress(track_tqdm=True)

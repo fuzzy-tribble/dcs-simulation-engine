@@ -20,7 +20,7 @@ def main() -> None:
         "--game",
         type=str,
         required=True,
-        help="Path to game configuration file (games/<game_name>.yml)",
+        help="Name of the game to launch (default: explore).",
     )
     parser.add_argument("--access-key", type=str, default=None)
     parser.add_argument("--pc-choice", type=str, default=None)

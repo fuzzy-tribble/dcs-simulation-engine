@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
         default="configs/logger-widget.config.yml",
         help="Path to a logging config YAML for the web runner.",
     )
+    parser.add_argument(
+        "--game",
+        type=str,
+        default="explore",
+        help="Name of the game to launch (default: explore).",
+    )
     return parser.parse_args()
 
 
@@ -60,8 +66,9 @@ def main() -> None:
                 using default logger. ({e})"
         )
 
+    app = None
     try:
-        app = build_app()
+        app = build_app(args.game)
         logger.info(f"Launching Gradio on http://{args.host}:{args.port}")
         CREATE_PUBLIC_URL = False  # set to True to enable public link via Gradio
         app.launch(
@@ -70,7 +77,9 @@ def main() -> None:
     except Exception as e:
         logger.exception(f"Exception occurred while running the web app: {e}")
         print("Error occurred while running web app. Stopping.")
-        app.close()
+    finally:
+        if app is not None:
+            app.close()
 
 
 if __name__ == "__main__":

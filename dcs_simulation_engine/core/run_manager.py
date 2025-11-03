@@ -122,7 +122,7 @@ class RunManager(BaseModel):
     @classmethod
     def create(
         cls,
-        game: str | Path,
+        game: str | Path | GameConfig,
         source: str = "unknown",
         pc_choice: Optional[str] = None,
         npc_choice: Optional[str] = None,
@@ -131,8 +131,12 @@ class RunManager(BaseModel):
         """Create a new run with default or provided parameters."""
         if isinstance(game, str):
             game_config_fpath = Path(get_game_config(game)).resolve()
-        else:
+        elif isinstance(game, Path):
             game_config_fpath = game.resolve()
+        elif isinstance(game, GameConfig):
+            game_config = game
+        else:
+            raise TypeError("Invalid game parameter type.")
 
         logger.debug(
             f"Create class method called with game_config_fpath={game_config_fpath}"

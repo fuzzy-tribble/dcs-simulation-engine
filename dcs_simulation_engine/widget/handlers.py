@@ -14,7 +14,7 @@ import gradio as gr
 from langchain_core.messages import AIMessage, HumanMessage
 from loguru import logger
 
-from dcs_simulation_engine.core.run_manager import SimulationManager
+from dcs_simulation_engine.core.run_manager import RunManager
 from dcs_simulation_engine.widget.state import AppState
 
 Message = Dict[str, str]
@@ -24,7 +24,7 @@ def _make_input_provider(state: AppState) -> Callable[[], str]:
     """Create a blocking input provider that feeds user messages from a Queue.
 
     The returned callable mirrors your CLI `input_provider`: it blocks until a
-    user message is available, then returns that message to `SimulationManager.play()`.
+    user message is available, then returns that message to `RunManager.play()`.
 
     Args:
         state: App state containing the active simulation and the message queue.
@@ -36,7 +36,7 @@ def _make_input_provider(state: AppState) -> Callable[[], str]:
         ValueError: If the simulation state was not initialized properly.
     """
     q: Queue[str] = state["queue"]
-    sim: SimulationManager = state["sim"]
+    sim: RunManager = state["sim"]
 
     def input_provider() -> str:
         """A blocking input provider for the simulation's play loop.
@@ -66,7 +66,7 @@ def _ensure_play_running(state: AppState) -> None:
     if existing and existing.is_alive():
         return
 
-    sim: SimulationManager = state["sim"]
+    sim: RunManager = state["sim"]
     ip = _make_input_provider(state)
 
     thread = Thread(target=lambda: sim.play(input_provider=ip), daemon=True)
@@ -84,7 +84,7 @@ def on_load(state: Dict[str, Any]) -> Tuple[str, str, AppState, List[Message]]:
     logger.debug(f"on_load called with state: {app_state}")
 
     if app_state.get("mode") == "demo":
-        sim: SimulationManager = SimulationManager.create(
+        sim: RunManager = RunManager.create(
             mode="demo", user_type="human-norm", character_type="human-nonverbal"
         )
     else:
@@ -161,7 +161,7 @@ def poll_fn(
     chat: List[Message], state: Dict[str, Any]
 ) -> Tuple[List[Message], Dict[str, Any]]:
     """Poll for new messages from the simulation engine to update the chat history."""
-    sim: Optional[SimulationManager] = state.get("sim")
+    sim: Optional[RunManager] = state.get("sim")
     if sim is None or sim.state is None or "last_seen" not in state:
         return chat, state, gr.update()
     if sim.stopped:
@@ -218,7 +218,7 @@ def on_send(
         Includes a safety timeout (120s) to avoid indefinite waiting.
     """
     app_state: AppState = AppState(**state) if isinstance(state, dict) else AppState()
-    sim: Optional[SimulationManager] = app_state.get("sim")
+    sim: Optional[RunManager] = app_state.get("sim")
     if not sim:
         # TODO: fix - this isn't displayed anywhere...
         return ([{"role": "assistant", "content": "Load a simulation first."}], "")

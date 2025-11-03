@@ -4,7 +4,7 @@ from queue import Queue
 from threading import Thread
 from typing import TypedDict
 
-from dcs_simulation_engine.core.run_manager import SimulationManager
+from dcs_simulation_engine.core.run_manager import RunManager
 
 
 class AppState(TypedDict, total=False):
@@ -12,7 +12,7 @@ class AppState(TypedDict, total=False):
 
     mode: str  # "demo" or "benchmark"
     access_token: str | None
-    sim: SimulationManager
+    run: RunManager
     queue: Queue[str]
     last_seen: int
     _play_thread: Thread

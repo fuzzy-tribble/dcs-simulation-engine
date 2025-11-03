@@ -3,9 +3,7 @@ name: Explore
 version: 1.0.0
 authors: ["DCS"]
 description: |
-  A lightweight character-interaction sandbox. There are no goals, no data
-  collection, and no extra mechanics — just free exploration and dialog.
-  Intended for demos and for inspecting character behavior in isolation.
+  A lightweight interaction sandbox that allows users/players to freely explore and interact with characters. There are no goals, no data collection, and no extra mechanics. Useful for demos and open-ended play.
 
 ### ACCESS SETTINGS ###
 # Defines who may access/play using a MongoDB-style query on players.

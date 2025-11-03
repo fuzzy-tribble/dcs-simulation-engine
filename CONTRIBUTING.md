@@ -4,6 +4,8 @@ Fork the repo and submit a PR with your changes.
 
 *(No specific format is required for PRs at this point...as long as its reasonable/understandble and focuses on the core development areas needed (discussed below) it will be considered.)*
 
+TODO: include how to run a new experiment (run_widget, run_api, etc), add a new character sheet, etc.
+
 ## Contributing to Character Sheets Database
 
 ## Contributing to Core Simulation Engine Codebase (including AI, models, graphs, prompts, etc.)

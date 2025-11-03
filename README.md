@@ -1,10 +1,12 @@
+🚧 NOTICE: This is a W.I.P. (official releases will be tagged and licensed when ready)
+
 # Diverse Cognitive Systems (DCS) Simulation Engine 
 
 
 *A scenario-based simulation engine for diverse forms of cognitive systems to play, learn and measure their goal inference capabilities.*
 
-[![API](https://img.shields.io/badge/API%20-007ACC)](https://google.com)          <!-- blue -->
-[![Demo](https://img.shields.io/badge/Demo%20-28A745)](https://google.com) <!-- green -->
+[![API Demo](https://img.shields.io/badge/API%20-007ACC)](https://google.com)          <!-- blue -->
+[![Web Demo](https://img.shields.io/badge/Demo%20-28A745)](https://google.com) <!-- green -->
 [![Codebase Docs](https://img.shields.io/badge/Codebase%20Docs%20-FF8C00)](https://fuzzy-tribble.github.io/dcs-simulation-engine/) <!-- orange -->
 [![Project Wiki](https://img.shields.io/badge/Project%20Wiki%20-FF69B4)](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki) <!-- pink -->
 
