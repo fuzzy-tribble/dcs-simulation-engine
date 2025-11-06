@@ -48,7 +48,6 @@ def _case_id(prefix: str, idx: int, case: dict) -> str:
     return f"{prefix}-{tail}"
 
 
-@pytest.mark.unit
 def test_initial_states_valid() -> None:
     """Test that valid initial states create runs successfully."""
     for i, kwargs in enumerate(state_tests["initial_state"]["valid"]):  # type: ignore[arg-type]
@@ -58,7 +57,6 @@ def test_initial_states_valid() -> None:
         assert run.state["lifecycle"] == "ENTER", _case_id("valid", i, kwargs)
 
 
-@pytest.mark.unit
 def test_initial_states_invalid() -> None:
     """Test that invalid initial states raise exceptions."""
     for i, case in enumerate(state_tests["initial_state"]["invalid"]):  # type: ignore[arg-type]
