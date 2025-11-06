@@ -50,7 +50,8 @@ class ValiditySelector(BaseModel):
         unknown = set(v) - ALLOWED_SOURCES
         if unknown:
             raise ValueError(
-                f"Unknown collection(s): {sorted(unknown)}. Allowed: {sorted(ALLOWED_SOURCES)}"
+                f"Unknown collection(s): {sorted(unknown)}. "
+                f"Allowed: {sorted(ALLOWED_SOURCES)}"
             )
         for k, q in v.items():
             if not isinstance(q, dict):
@@ -78,6 +79,7 @@ class AccessSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     user: ValiditySelector
     consent_form: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
 
 class CharacterSettings(BaseModel):
     """Defines the player and non-player character selection logic."""
@@ -213,7 +215,8 @@ class GameConfig(SerdeMixin, BaseModel):
             # Need a concrete player to test non-empty restrictions.
             if not player_id:
                 logger.debug(
-                    "is_player_allowed: valid map has non-empty queries but no player_id -> deny"
+                    "is_player_allowed: valid map has non-empty queries "
+                    "but no player_id -> deny"
                 )
                 return False
             in_valid = any(
@@ -226,7 +229,8 @@ class GameConfig(SerdeMixin, BaseModel):
             # Empty => no restriction to exclude => treat as False
             in_invalid = False
         elif any_empty_query(invalid_map):
-            # Any empty query means "everyone is invalid" (excluded), regardless of player_id
+            # Any empty query means "everyone is invalid" (excluded),
+            # regardless of player_id
             in_invalid = True
         else:
             # If no player_id, we can’t be in an invalid set scoped to a player.

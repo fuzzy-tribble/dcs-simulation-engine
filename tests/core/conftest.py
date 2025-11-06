@@ -19,8 +19,15 @@ def game_config_minimal(
     base = tmp_path_factory.mktemp("cfg_minimal")
     game_config_yml = """
     name: Minimal Test Game Config
+    version: 1.0.0
     description: A minimal game config for testing.
-    characters:
+    access_settings:
+      user:
+        valid:
+          players: {}
+    data_collection_settings:
+      save_runs: False
+    character_settings:
       pc:
         valid:
           characters: {}
@@ -32,18 +39,25 @@ def game_config_minimal(
       description: A minimal graph for testing with start and end nodes only.
       nodes:
         - name: echoNode
+          kind: custom
           provider: openrouter
           model: openai/gpt-oss-20b:free
           additional_kwargs: {}
-          system_prompt_template: "Echo back any input message."
-          state_permissions:
-            read: []
-            write: []
+          system_template: |
+            Echo back any input message.
+            Output Format: {
+              "events": [
+                {
+                  "type": "assistant",
+                  "content": "<your reply here>"
+                }
+              ]
+            }
       edges:
-        - from: __start__
+        - from: __START__
           to: echoNode
         - from: echoNode
-          to: __end__
+          to: __END__
     """
     game_config_path = base / "game_config_minimal.yml"
     write_yaml(game_config_path, game_config_yml)
@@ -56,7 +70,7 @@ def game_config_with_branching_graph(
 ) -> SimpleNamespace:
     """Fixture for a game config with a branching graph."""
     patch = """
-    characters:
+    character_settings:
       pc:
         valid:
           characters: { hid: 'human-normative' }
@@ -70,32 +84,46 @@ def game_config_with_branching_graph(
         only fixed string replies.
       nodes:
         - name: scene_setup_agent
+          kind: custom
           provider: openrouter
           model: openai/gpt-oss-20b:free
           additional_kwargs: {}
-          system_prompt_template: "Reply with 'SETUP_SCENE' ONLY."
-          state_permissions:
-            read: []
-            write: ["agent_artifacts"]
+          system_template: |
+            Reply with 'SETUP_SCENE' ONLY.
+            Output Format: {
+              "events": [
+                {
+                  "type": "assistant",
+                  "content": "<your reply here>"
+                }
+              ]
+            }
         - name: scene_continuation_agent
+          kind: custom
           provider: openrouter
           model: openai/gpt-oss-20b:free
           additional_kwargs: {}
-          system_prompt_template: "Reply with 'CONTINUE_SCENE' ONLY."
-          state_permissions:
-            read: ["messages"]
-            write: ["messages"]
+          system_template: |
+            Reply with 'CONTINUE_SCENE' ONLY.
+            Output Format: {
+              "events": [
+                {
+                  "type": "assistant",
+                  "content": "<your reply here>"
+                }
+              ]
+            }
       edges:
-        - from: __start__
+        - from: __START__
           to:
             conditional:
               - if: "len(messages) == 0"
                 then: scene_setup_agent
               - else: scene_continuation_agent
         - from: scene_setup_agent
-          to: __end__
+          to: __END__
         - from: scene_continuation_agent
-          to: __end__
+          to: __END__
     """
     patched_yml = patch_yml(game_config_minimal.path, patch)
     return SimpleNamespace(path=patched_yml.path)
@@ -108,7 +136,8 @@ def run(game_config_with_branching_graph: SimpleNamespace) -> RunManager:
     Kept function-scoped so each test gets a clean instance.
     """
     rm = RunManager.create(
-        game_config_fpath=Path(game_config_with_branching_graph.path),
+        game=Path(game_config_with_branching_graph.path),
+        source="pytest",
         pc_choice="human-normative",
         # npc_choice="flatworm"
     )
@@ -121,8 +150,9 @@ def game_config_with_player_persistence(
 ) -> SimpleNamespace:
     """Fixture for a game config with player persistence."""
     patch = """
-    enable-player-persistence: True
-    characters:
+    data_collection_settings:
+      save_runs: True
+    character_settings:
       pc:
         valid:
           characters: { hid: 'human-normative' }
@@ -146,7 +176,8 @@ def persistant_run(game_config_with_player_persistence: SimpleNamespace) -> RunM
         player_data=player_data, issue_access_key=True
     )
     rm = RunManager.create(
-        game_config_fpath=Path(game_config_with_player_persistence.path),
+        game=Path(game_config_with_player_persistence.path),
+        source="pytest",
         access_key=access_key,
     )
     return rm

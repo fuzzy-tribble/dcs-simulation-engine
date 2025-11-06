@@ -40,7 +40,7 @@ def make_state(overrides: dict[str, Any] | None = None) -> StateSchema:
     try:
         allowed_keys = set(
             getattr(StateAdapter, "model_fields", None)
-            and StateAdapter.model_fields.keys()
+            and StateAdapter.model_fields.keys()  # type: ignore
         ) or set(getattr(StateAdapter, "__fields__", {}).keys())
         if not allowed_keys:
             allowed_keys = set(base.keys())

@@ -55,7 +55,7 @@ def test_initial_states_valid() -> None:
         run = RunManager.create(**kwargs)
         assert run is not None, _case_id("valid", i, kwargs)
         assert run.state is not None, _case_id("valid", i, kwargs)
-        assert run.state["lifecycle"] == "INIT", _case_id("valid", i, kwargs)
+        assert run.state["lifecycle"] == "ENTER", _case_id("valid", i, kwargs)
 
 
 @pytest.mark.unit
@@ -94,7 +94,10 @@ def test_invalid_user_input(run: RunManager) -> None:
     run.state["events"] = [
         {
             "type": "simulator",
-            "content": "You enter a new space. In this space there is a table with a glass tank on it.",
+            "content": (
+                "You enter a new space. "
+                "In this space there is a table with a glass tank on it."
+            ),
         }
     ]
     run.state["event_draft"] = {"role": "user", "content": "I break the game."}
@@ -146,7 +149,8 @@ def test_valid_user_input(run: RunManager) -> None:
     run.state["lifecycle"] = "UPDATE"
     run.state["events"] = [
         AIMessage(
-            "You enter a new space. In this space there is a table with a glass tank on it."
+            "You enter a new space. "
+            "In this space there is a table with a glass tank on it."
         )
     ]
     run.state["event_draft"] = {"role": "user", "content": "I look around."}

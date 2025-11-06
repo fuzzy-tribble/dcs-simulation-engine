@@ -14,12 +14,9 @@ def test_init_from_create(run: RunManager) -> None:
     """Should initialize RunManager."""
     assert run is not None
     assert run.state is not None
-    # TODO: pre-oss - validate run.state is a valid StateSchema
-    # instead of writing out all the class vars here
-    # assert isinstance(run.state, StateSchema
-    assert run.state.get("pc") is not None
-    assert run.state.get("npc") is not None
-    assert run.state.get("messages") is not None
+    assert run.context["pc"] is not None
+    assert run.context["npc"] is not None
+    assert run.state["events"] is not None
 
     assert run.graph is not None
     assert isinstance(run.graph, SimulationGraph)
@@ -33,14 +30,14 @@ def test_save_run_to_database(persistant_run: RunManager) -> None:
     logger.debug(f"Run state before stopping: {run}")
     assert run.player_id is not None
     assert run.state is not None
-    run.stop(reason="unit test stop")
-    assert run.stopped
-    assert run.stop_reason == "unit test stop"
+    run.exit(reason="unit test stop")
+    assert run.exited
+    assert run.exit_reason == "unit test stop"
     # Check that the doc is in the database
     db = dbh.get_db()
     doc = db[dbh.RUNS_COL].find_one({"player_id": run.player_id})
     assert doc is not None
-    assert doc["stop_reason"] == "unit test stop"
+    assert doc["exit_reason"] == "unit test stop"
 
 
 @pytest.mark.slow

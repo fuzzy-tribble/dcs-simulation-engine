@@ -33,15 +33,22 @@ def test_compile_fails_on_missing_node(write_yaml: Callable[[str, str], Path]) -
     name: invalid-missing-node
     nodes:
       - name: agentA
+        kind: custom
         provider: openrouter
         model: openai/gpt-oss-20b:free
         additional_kwargs: {}
-        state_permissions:
-          read: ["messages"]
-          write: ["messages"]
-        system_prompt_template: "Reply with 'A' ONLY."
+        system_template: |
+          Reply with 'A' ONLY.
+          Output Format: {
+              "events": [
+                {
+                  "type": "assistant",
+                  "content": "<your reply here>"
+                }
+              ]
+            }
     edges:
-      - from: __start__
+      - from: __START__
         to: agentB   # <-- missing node on purpose
     """
     p = write_yaml("invalid-missing-node.yml", yml)
@@ -92,31 +99,43 @@ def _write_simple_yaml(path: Path) -> None:
         name: simple-test-graph
         nodes:
           - name: agent1
+            kind: custom
             provider: openrouter
             model: openai/gpt-oss-20b:free
             additional_kwargs: {}
-            state_permissions:
-              read: ["messages"]
-              write: ["agent_artifacts"]
-            system_prompt_template: |
+            system_template: |
               Reply with 'H' ONLY.
+              Output Format: {
+                "events": [
+                  {
+                    "type": "assistant",
+                    "content": "<your reply here>"
+                  }
+                ]
+              }
           - name: agent2
+            kind: custom
             provider: openrouter
             model: openai/gpt-oss-20b:free
             additional_kwargs: {}
-            state_permissions:
-              read: ["agent_artifacts.agent1"]
-              write: ["messages"]
-            system_prompt_template: |
+            system_template: |
               What is the letter is in the agent_artifacts text field? 
               Reply with the letter ONLY.
+              Output Format: {
+                "events": [
+                  {
+                    "type": "assistant",
+                    "content": "<your reply here>"
+                  }
+                ]
+              }
         edges:
-          - from: __start__
+          - from: __START__
             to: agent1
           - from: agent1
             to: agent2
           - from: agent2
-            to: __end__
+            to: __END__
         """
     ).strip()
     path.write_text(cfg, encoding="utf-8")
@@ -174,25 +193,37 @@ def _write_conditional_yaml(path: Path) -> None:
         name: conditional-test-graph
         nodes:
           - name: agentA
+            kind: custom
             provider: openrouter
             model: openai/gpt-oss-20b:free
             additional_kwargs: {}
-            system_prompt_template: |
+            system_template: |
               Reply with '37' ONLY.
-            state_permissions:
-              read: ["messages"]
-              write: ["messages"]
+              Output Format: {
+                "events": [
+                  {
+                    "type": "assistant",
+                    "content": "<your reply here>"
+                  }
+                ]
+              }
           - name: agentB
+            kind: custom
             provider: openrouter
             model: openai/gpt-oss-20b:free
             additional_kwargs: {}
-            system_prompt_template: |
+            system_template: |
               Reply with '92' ONLY.
-            state_permissions:
-              read: ["messages"]
-              write: ["messages"]
+              Output Format: {
+                "events": [
+                  {
+                    "type": "assistant",
+                    "content": "<your reply here>"
+                  }
+                ]
+              }
         edges:
-          - from: __start__
+          - from: __START__
             to:
               conditional:
                 - if: "len(messages) == 0"
@@ -201,9 +232,9 @@ def _write_conditional_yaml(path: Path) -> None:
 
           # Keep end routing simple (no custom functions required)
           - from: agentA
-            to: __end__
+            to: __END__
           - from: agentB
-            to: __end__
+            to: __END__
         """
     ).strip()
     path.write_text(cfg, encoding="utf-8")

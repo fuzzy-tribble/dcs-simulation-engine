@@ -228,7 +228,7 @@ class SerdeMixin(BaseModel):
         field_type = None
         try:
             for p in parts:
-                fld: fields.FieldInfo = current_model.model_fields[p]  # type: ignore[attr-defined]
+                fld: fields.FieldInfo = current_model.model_fields[p]
                 field_type = fld.annotation
                 origin = get_origin(field_type)
                 args = get_args(field_type)

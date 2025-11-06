@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import fnmatch
 from pathlib import Path
-from typing import Dict, List
-
-import yamale
-from yamale import YamaleError
+from typing import List
 
 
 def _is_yaml(p: Path) -> bool:

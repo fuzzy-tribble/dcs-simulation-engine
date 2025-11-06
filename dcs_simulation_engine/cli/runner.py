@@ -1,4 +1,5 @@
-# cli.py
+"""CLI runner for DCS Simulation Engine."""
+
 from typing import Optional
 
 from loguru import logger

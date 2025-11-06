@@ -167,17 +167,19 @@ class Node(BaseModel):
         DynamicModel = create_model(  # type: ignore[misc]
             f"BuiltinConfig__{builtin_name}",
             __base__=BaseModel,
-            **fields,
+            **fields,  # type: ignore
         )
         # Control extras based on **kwargs presence
         DynamicModel.model_config["extra"] = "allow" if accepts_kwargs else "forbid"  # type: ignore[index]
 
-        # Now validate the provided kwargs (empty dict is fine if all params have defaults)
+        # Now validate the provided kwargs (empty dict is fine if all params
+        # have defaults)
         try:
             DynamicModel(**(self.kwargs or {}))
         except ValidationError as ve:
             raise ValueError(
-                f"Invalid kwargs for builtin '{builtin_name}' in node '{self.name}': {ve}"
+                f"Invalid kwargs for builtin '{builtin_name}' in node '{self.name}':"
+                f" {ve}"
             ) from ve
 
 

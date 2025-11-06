@@ -1,8 +1,13 @@
 """Chat UI components."""
-from typing import NamedTuple, Optional
+
+from typing import NamedTuple
+
 import gradio as gr
 
+
 class ChatUI(NamedTuple):
+    """Named tuple for chat UI components."""
+
     container: gr.Group
     events: gr.Chatbot
     user_box: gr.Textbox
@@ -10,15 +15,17 @@ class ChatUI(NamedTuple):
     loader: gr.Markdown
     timer: gr.Timer
 
+
 def build_chat() -> ChatUI:
+    """Build chat UI components."""
     with gr.Group(visible=False) as group:
 
         # chat message bubbles
-        # TODO: I think this has a built-in timer...consider using it instead of custom timer below
+        # TODO: I think this has a built-in timer...consider using instead of custom
         chatbot = gr.Chatbot(
-            show_label=False, # no chat label
-            group_consecutive_messages=False, # keep back-to-back messages separate
-            render_markdown=True, # render markdown in messages
+            show_label=False,  # no chat label
+            group_consecutive_messages=False,  # keep back-to-back messages separate
+            render_markdown=True,  # render markdown in messages
             # show_share_button=True, # shows share button
             show_copy_all_button=True,
             # watermark=True,
@@ -26,9 +33,9 @@ def build_chat() -> ChatUI:
             # feedback_value=["Like", "Dislike", "Report"],
             # examples=["/help"], # default examples
             autoscroll=True,
-            min_height=600, 
-            type="messages"
-            )
+            min_height=600,
+            type="messages",
+        )
 
         # loader indicator for waiting simulator response
         loader = gr.Markdown("⏳ *Thinking...*", visible=False)
@@ -49,5 +56,5 @@ def build_chat() -> ChatUI:
         user_box=user_box,
         send_btn=send_btn,
         loader=loader,
-        timer=timer
+        timer=timer,
     )

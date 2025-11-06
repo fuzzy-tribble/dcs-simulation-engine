@@ -8,6 +8,8 @@ from dcs_simulation_engine.core.game_config import GameConfig
 
 
 class HeaderUI(NamedTuple):
+    """Named tuple for header UI components."""
+
     pass  # no fields
 
 

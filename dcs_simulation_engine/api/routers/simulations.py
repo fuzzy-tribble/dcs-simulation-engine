@@ -152,10 +152,12 @@ def step(
 def play(
     run_id: str, body: PlayRequest, run: RunManager = Depends(get_manager)
 ) -> PlayResponse:
-    """Run play() with a finite list of inputs; server will iterate."""
+    """Run play with a finite list of inputs."""
     try:
-        # RunManager.play does not accept max_steps; we emulate by stepping over provided inputs.
-        # If you need strict step caps beyond inputs, enforce via stopping_conditions in GameConfig.
+        # RunManager.play does not accept max_steps;
+        # we emulate by stepping over provided inputs.
+        # If you need strict step caps beyond inputs,
+        # enforce via stopping_conditions in GameConfig.
         for text in body.inputs:
             if run.exited:
                 break

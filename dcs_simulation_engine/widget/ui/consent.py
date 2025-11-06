@@ -179,7 +179,8 @@ def build_consent(consent_config: Dict[str, Any]) -> ConsentUI:
     with gr.Group(visible=False) as token_group:
         gr.Markdown("### Your One-Time Access Token")
         gr.Markdown(
-            "> Save this **now**. You won’t be able to see it again here after you continue."
+            "> Save this **now**. "
+            "You won’t be able to see it again here after you continue."
         )
         token_text = gr.Textbox(
             label="Token",

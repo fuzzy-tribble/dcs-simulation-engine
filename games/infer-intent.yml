@@ -71,7 +71,7 @@ character_settings:
     valid:
         characters:
           where:
-            $nor:
+            $ne:
               - hid: "human-normative"
         # characters: { 'where': { $ne : { hid: 'human-normative' } } } # valid if the npc is not human normative
     # invalid:

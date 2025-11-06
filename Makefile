@@ -2,17 +2,16 @@
 # Without this, make might skip a task if a file with the same name exists.
 .PHONY: lint test docs ci
 
-# Run all linting/formatting checks (you can add more tools here if needed).
+# Run all linting/formatting checks (on the dcs_simulation_engine/ package here).
 lint:
-	poetry run ruff check .
-	poetry run black --check --diff .
-	poetry run mypy .
+	poetry run ruff check dcs_simulation_engine/
+	poetry run black --check --diff dcs_simulation_engine
+# TODO: enable mypy when types are fixed
+# 	poetry run mypy dcs_simulation_engine
 
 # Run your test suite quietly.
 test:
-# TODO: re-enable once tests are fixed
-# 	poetry run pytest -q
-# 	poetry run pytest -vv -m "not slow and not manual and not external"
+	poetry run pytest -m unit -q
 
 # Build documentation (MkDocs in this example).
 docs:

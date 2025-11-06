@@ -233,7 +233,8 @@ def on_consent_back(
 ) -> Tuple[SessionState, Dict[str, Any], Dict[str, Any]]:
     """Handle clicking the Back button on the consent page.
 
-    Takes landing container and consent container and sets visibility to show landing and not consent form.
+    Takes landing container and consent container and sets visibility to
+      show landing and not consent form.
     """
     logger.debug("on_consent_back called")
     updated_landing = gr.update(visible=True)
@@ -249,7 +250,8 @@ def on_consent_submit(
     """Handle clicking the I Agree & Continue button on the consent page.
 
     - creates player with consent data, issues access token
-    - takes landing container and consent container and sets visibility to show landing and not consent form.
+    - takes landing container and consent container and sets visibility to show
+    landing and not consent form.
     """
     # TODO: validate consent fields and if not valid return error message text below
     user_data = {
@@ -291,7 +293,8 @@ def on_token_continue(
 ]:
     """Handle clicking the Continue button on the token display page.
 
-    Takes landing container and consent container and sets visibility to show landing and not consent form.
+    Takes landing container and consent container and sets visibility to
+    show landing and not consent form.
     """
     logger.debug("on_token_continue called")
     updated_landing = gr.update(visible=True)
@@ -300,7 +303,7 @@ def on_token_continue(
     updated_token_text = gr.update(placeholder="")  # clear placeholder
     logger.debug("Cleared token display on continue.")
     updated_consent = gr.update(visible=False)
-    updated_token_error_box = gr.update(visible=False, value="")
+    # updated_token_error_box = gr.update(visible=False, value="")
     return (
         state,
         updated_landing,
@@ -409,18 +412,6 @@ def on_send(
     1) Puts the user message into the queue consumed by the input provider.
     2) Waits for the engine to append a new message to `run.state["events"]`.
     3) Appends the (user, ai) pair to the Gradio Chatbot history.
-
-    Args:
-        event: The user's input text from the textbox.
-        chat: Current Chatbot history.
-        state: gr.State dictionary containing the active simulation and queue.
-
-    Returns:
-        Tuple[List[Message], str]: Updated Chatbot history and an empty string
-        to clear the input textbox.
-
-    Notes:
-        Includes a safety timeout (120s) to avoid indefinite waiting.
     """
     logger.debug(f"on_send called with event: {event}")
 

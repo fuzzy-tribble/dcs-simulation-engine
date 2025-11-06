@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 from uuid import uuid4
 
+from dcs_simulation_engine.api.models import CreateRunRequest
 from dcs_simulation_engine.core.run_manager import RunManager
 
 
@@ -28,14 +29,14 @@ class RunRegistry:
         """Initialize the registry."""
         self._store: Dict[str, RunManager] = {}
 
-    def create(self) -> tuple[str, RunManager]:
+    def create(self, payload: CreateRunRequest) -> tuple[str, RunManager]:
         """Create and store a new RunManager instance.
 
         Returns:
             tuple[str, RunManager]: The generated run ID and the instance.
         """
         run = RunManager.create(
-            game=game,
+            game=payload.game,
             source="api",
             pc_choice=payload.pc_choice,
             npc_choice=payload.npc_choice,

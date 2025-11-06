@@ -79,7 +79,8 @@ class SimulationGraph:
             raise RuntimeError("Cannot invoke SimulationGraph: no compiled graph.")
 
         try:
-            # TODO: consider there a langgraph safe way to set max runtime for the whole graph run? and exit if exceeded? As a failsafe against runaway costs.
+            # TODO: consider there a langgraph safe way to set max runtime for the whole
+            #  graph run? and exit if exceeded? As a failsafe against runaway costs.
             start = time.perf_counter()
 
             # Before running, reset fields that should not persist between invocations
@@ -124,7 +125,8 @@ class SimulationGraph:
             new_state = StateAdapter.validate_python(new_state)
         except ValidationError as e:
             logger.error(
-                f"Invalid output StateSchema from SimulationGraph: {new_state}\nError: {e}"
+                f"Invalid output StateSchema from SimulationGraph: {new_state}\n"
+                f"Error: {e}"
             )
             raise
 
@@ -150,9 +152,11 @@ class SimulationGraph:
         logger.info("Compiling simulation graph...")
 
         builder = StateGraph(
-            # defines the shared mutable state that all nodes in the graph can read from or write to.
+            # defines the shared mutable state that all nodes in the graph can read
+            # from or write to.
             state_schema=StateSchema,
-            # defines immutable runtime context (like configuration, environment, user info, etc). Available for reference but not meant to change.
+            # defines immutable runtime context (like configuration, environment, user
+            # info, etc). Available for reference but not meant to change.
             context_schema=ContextSchema,
             # # defines what data can be passed into the graph (entry input)
             # input_schema=StateSchema,
@@ -189,7 +193,8 @@ class SimulationGraph:
                 clauses = dest.conditional
                 if not isinstance(clauses, list) or not clauses:
                     raise ValueError(
-                        f"'conditional' must be a non-empty list for edge from {e.from_}"
+                        f"'conditional' must be a non-empty list for "
+                        f"edge from {e.from_}"
                     )
                 router = cls._build_router_from_clauses(clauses)
 
@@ -331,7 +336,8 @@ class SimulationGraph:
                 args = node.kwargs if node.kwargs is not None else {}
                 # call building with appropriate args
                 logger.debug(
-                    f"Calling builtin node function: {node.kind} with arguments keys: {args.keys()}"
+                    f"Calling builtin node function: {node.kind}"
+                    f" with arguments keys: {args.keys()}"
                 )
                 state_updates = builtin_fn(state=state, context=runtime.context, **args)
             else:
@@ -401,10 +407,13 @@ class SimulationGraph:
                         )
                     else:
                         logger.debug(
-                            f"Node '{node.name}' running LLM ({node.model}) took {elapsed:.3f} seconds."
+                            f"Node '{node.name}' running LLM ({node.model})"
+                            f" took {elapsed:.3f} seconds."
                         )
                 except Exception as ex:
-                    # TODO: add finer-grained error handling (rate limit, timeout, permissions, etc) eg. if rate limit, maybe default retires instead of crash the game.
+                    # TODO: add finer-grained error handling (rate limit, timeout,
+                    # permissions, etc) eg. if rate limit, maybe default retries
+                    # instead of crash the game.
                     raise RuntimeError(
                         f"Node '{node.name}' LLM invocation failed \
                             (rate limit/timeout/permissions?): {ex}"
@@ -415,16 +424,15 @@ class SimulationGraph:
                     response_text = str(response)
 
                 # ----- Try to extract and merge JSON output -----
-                # Heuristic: grab the first top level {...} block to tolerate extra prose
+                # Heuristic: grab the first top level {...} block (tolerate extra prose)
                 try:
                     match = re.search(r"\{.*\}", response_text, flags=re.DOTALL)
                     if match:
                         state_updates = json.loads(match.group(0))
                 except Exception as ex:
                     logger.warning(
-                        "Node '{}' returned non-JSON or unparsable JSON; preserving raw text. Error: {}",
-                        node.name,
-                        ex,
+                        f"Node '{node.name}' returned non-JSON or unparsable JSON;"
+                        f" preserving raw text. Error: {ex}",
                     )
                 # TODO: BEFORE MERGING/PATCHING, MAKE SURE MODEL ONLY
                 # RETURNED WHAT INSTRUCTIONS TOLD IT TO IN OUTPUT_FORMAT

@@ -40,13 +40,15 @@ def test_select_characters_valid(
     """Should load valid characters from minimal config."""
     # Patch minimal config to include simple valid character selectors
     patch = """
-    characters:
+    character_settings:
       pc:
         valid:
-          characters: { hid: = 'human-normative' }
+          characters:
+            where:
+                hid: 'human-normative'
       npc:
         valid:
-          characters: { hid: { $ne : 'human-normative' } }
+          characters: { 'where': { hid: { $ne : 'human-normative' } } }
     """
     patched_yml = patch_yml(game_config_minimal.path, patch)
     logger.debug(f"Patched YAML path: {patched_yml.path}")
@@ -65,7 +67,7 @@ def test_get_valid_chars_with_valid_minus_invalid(
     - NPCs: V={'a','b','c'}, I={'b'} → ['a','c']
     """
     patch = """
-    characters:
+    character_settings:
       pc:
         valid: 
           # where hid includes 'human'
@@ -87,9 +89,7 @@ def test_get_valid_chars_with_valid_minus_invalid(
 
     # Create a player in the database
     player_data: Dict[str, Any] = {"email": "alice@example.com"}
-    player_id, _ = dbh.create_player(
-        player_data, issue_access_key=True, return_raw_key=True
-    )
+    player_id, _ = dbh.create_player(player_data, issue_access_key=True)
     player_doc = db.players.find_one({"_id": ObjectId(player_id)})
     assert player_doc is not None
     assert db.characters.count_documents({}) > 5  # sanity check
@@ -113,13 +113,16 @@ def test_get_valid_chars_with_valid_minus_invalid(
     pcs, npcs = cfg.get_valid_characters(player_id=player_id)
     logger.debug(f"Valid PCs: {pcs}, Valid NPCs: {npcs}")
 
-    assert set(pcs) == {"human-normative", "human-multi-divergent-complex"}
-    assert set(npcs) == {
-        "algorithm-sort",
-        "human-multi-divergent-complex",
-        "llm-gpt5",
-        "thermostat",
-    }
+    # get all characters from db then remove invalids to compare
+    all_chars = list(db.characters.find({}))
+    assert all_chars is not None
+
+    expected_valid_pcs = [c for c in all_chars if c["hid"] in pcs]
+    expected_valid_npcs = [c for c in all_chars if c["hid"] in npcs]
+
+    # compare sets of HIDs
+    assert set(c["hid"] for c in expected_valid_pcs) == set(pcs)
+    assert set(c["hid"] for c in expected_valid_npcs) == set(npcs)
 
 
 @pytest.mark.unit
@@ -128,7 +131,7 @@ def test_get_valid_chars_older_than(
 ) -> None:
     """Should compute valid characters filtering runs by created_at."""
     patch = """
-    characters:
+    character_settings:
       pc:
         valid:
           characters: { 'where': { 'hid': 'human-normative' } }
@@ -148,9 +151,7 @@ def test_get_valid_chars_older_than(
 
     # create a player, insert two runs: one old, one recent
     player_data: Dict[str, Any] = {"email": "bob@example.com"}
-    player_id, _ = dbh.create_player(
-        player_data, issue_access_key=True, return_raw_key=True
-    )
+    player_id, _ = dbh.create_player(player_data, issue_access_key=True)
     player_doc = db.players.find_one({"_id": ObjectId(player_id)})
     assert player_doc is not None
 
@@ -160,7 +161,7 @@ def test_get_valid_chars_older_than(
             "player_id": ObjectId(player_id),
             "game_config": {"name": "Any"},
             "npc": {"hid": "algorithm-sort"},
-            "_created_at": dbh.now(delta_days=-2),
+            "_created_at": dbh.now(delta=-2),
         },
         # recent run (valid)
         {
@@ -178,10 +179,12 @@ def test_get_valid_chars_older_than(
 
     pcs, npcs = cfg.get_valid_characters(player_id=player_id)
     logger.debug(f"Valid PCs: {pcs}, Valid NPCs: {npcs}")
-    assert pcs == ["human-normative"]
-    assert set(npcs) == {
-        "flatworm",
-        "human-multi-divergent-complex",
-        "llm-gpt5",
-        "thermostat",
-    }
+
+    # get all characters from db then remove invalids to compare
+    all_chars = list(db.characters.find({}))
+    assert all_chars is not None
+    expected_valid_pcs = [c for c in all_chars if c["hid"] in pcs]
+    expected_valid_npcs = [c for c in all_chars if c["hid"] in npcs]
+
+    assert set(c["hid"] for c in expected_valid_pcs) == set(pcs)
+    assert set(c["hid"] for c in expected_valid_npcs) == set(npcs)

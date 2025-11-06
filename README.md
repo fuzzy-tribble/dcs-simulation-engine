@@ -9,6 +9,7 @@
 [![Web Demo](https://img.shields.io/badge/Demo%20-28A745)](https://simulation-engine-demo.fly.dev/) <!-- green -->
 [![Codebase Docs](https://img.shields.io/badge/Codebase%20Docs%20-FF8C00)](https://fuzzy-tribble.github.io/dcs-simulation-engine/) <!-- orange -->
 [![Project Wiki](https://img.shields.io/badge/Project%20Wiki%20-FF69B4)](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki) <!-- pink -->
+<!-- TODO: add built-badge links for tests, linting, coverage, etc. -->
 
 ## What is this?
 
@@ -64,5 +65,7 @@ For example, the system might normally generate a line such as “I whistle soft
 - [Contributing Guide](CONTRIBUTING.md) - how to contribute to the project
 - [Project Wiki](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki) - background information on the project
 - [Codebase Docs](https://fuzzy-tribble.github.io/dcs-simulation-engine/) - documentation for the codebase
-- [Web Demo](https://todo.com) - try the simulation engine online
+- [Web Demo](https://simulation-engine-widget-demo.fly.io) - try the simulation engine online
+- [API Demo](https://simulation-engine-api-demo.fly.io/redoc) - try the simulation engine API online
+- [Analysis Notebooks](analysis_notebooks/) - Jupyter notebooks containing anonymized analysis of simulation sessions
 - [Contact](mailto:mworkman9@gatech.edu) - get in touch with the maintainers for questions, suggestions, etc. using the "Issues" tab on GitHub or email

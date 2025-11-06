@@ -28,7 +28,8 @@ from dcs_simulation_engine.utils.file import safe_timestamp, unique_fpath
 
 # TODO: add safety/validation heuristic for overly complex inputs liek really long
 # actions....length heuristic using tokens or character threshold
-# TODO: what prevents user from inputting two things really fast and flooding the system??
+# TODO: what prevents user from inputting two things
+# really fast and flooding the system??
 
 
 class RunManager(BaseModel):
@@ -71,7 +72,8 @@ class RunManager(BaseModel):
             raise ValueError("stopping_conditions cannot be empty.")
         if not isinstance(v, dict):
             raise TypeError(
-                "stopping_conditions must be a dict[str, list[str]] or compatible mapping."
+                "stopping_conditions must be a dict[str, list[str]] or "
+                "compatible mapping."
             )
         # use cls.model_fields here (not RunManager) to avoid class-construction issues
         allowed = set(cls.model_fields.keys()) | {
@@ -212,7 +214,8 @@ class RunManager(BaseModel):
             state: StateSchema = make_state()
             if game_config.graph_config.state_overrides:
                 logger.debug(
-                    f"Applying state overrides: {game_config.graph_config.state_overrides}"
+                    f"Applying state overrides: "
+                    f"{game_config.graph_config.state_overrides}"
                 )
                 state.update(**game_config.graph_config.state_overrides)
             else:
@@ -365,7 +368,7 @@ class RunManager(BaseModel):
             # invoke the graph to get new state
             new_state = self.graph.invoke(
                 state=self.state,  # dynamic state
-                context=self.context,  # static runtime context (pc, npc, api connections, etc)
+                context=self.context,  # static runtime ctx (n/pc, api connections, etc)
                 config=self.config,  # runnable config
             )
             self.state = new_state
@@ -390,7 +393,8 @@ class RunManager(BaseModel):
 
         while not self.exited:
             try:
-                # check simulation state vars/lifecycle for stopping conditions before calling provider
+                # check simulation state vars/lifecycle for stopping conditions
+                # before calling provider
                 self._ensure_stopping_conditions()
 
                 events = self.state["events"]
@@ -513,7 +517,8 @@ class RunManager(BaseModel):
             if not hasattr(self, attr):
                 logger.error(f"Unknown stopping condition attribute: {attr}. Skipping.")
                 continue
-            # TODO: this needs to handle @computed_field @properties too like total turns
+            # TODO: this needs to handle @computed_field @properties
+            # too like total turns
             attr_value = getattr(self, attr)
 
             for condition in cond_list:
@@ -534,13 +539,15 @@ class RunManager(BaseModel):
                     elif isinstance(attr_value, str):
                         if condition in attr_value:
                             self.exit(
-                                reason=f"stopping condition met: {attr} contains '{condition}'"
+                                reason=f"stopping condition met: {attr} contains "
+                                f"'{condition}'"
                             )
                             return
 
                 except Exception as e:
                     logger.error(
-                        f"Error evaluating stopping condition for {attr}='{condition}': {e}"
+                        f"Error evaluating stopping condition for {attr}='{condition}':"
+                        f" {e}"
                     )
 
     @staticmethod
@@ -552,7 +559,8 @@ class RunManager(BaseModel):
             raise ValueError("stopping_conditions cannot be empty.")
 
         # allowed attrs = model fields + explicit properties
-        # NOTE: we can't access cls here, so this helper is used only after class is defined
+        # NOTE: we can't access cls here, so this helper is used only after
+        # class is defined
         allowed = set(RunManager.model_fields.keys()) | {
             "runtime_seconds",
             "runtime",

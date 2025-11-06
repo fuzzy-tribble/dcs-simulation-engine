@@ -17,7 +17,6 @@ import hashlib
 import hmac
 import os
 import re
-from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
 
@@ -118,8 +117,8 @@ def _resolve_magic_tokens(obj: Any) -> Any:
     """Resolve __now±N<unit>__ tokens recursively."""
     if isinstance(obj, Mapping):
         return {k: _resolve_magic_tokens(v) for k, v in obj.items()}
-    if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
-        return [_resolve_magic_tokens(x) for x in obj]
+    # if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes)):
+    #     return [_resolve_magic_tokens(x) for x in obj]
     if isinstance(obj, str):
         m = _NOW_TOKEN.fullmatch(obj)
         if m:

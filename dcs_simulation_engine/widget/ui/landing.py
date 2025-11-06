@@ -11,8 +11,8 @@ class LandingUI(NamedTuple):
     """Landing page UI components."""
 
     container: gr.Group
-    gated_play_btn: gr.Button
-    ungated_play_btn: gr.Button
+    gated_play_btn: Optional[gr.Button]  # None for ungated
+    ungated_play_btn: Optional[gr.Button]  # None for gated
     token_box: Optional[gr.Textbox]  # None for ungated
     token_error_box: Optional[gr.Markdown]  # None for ungated
     generate_token_btn: Optional[gr.Button]  # None for ungated

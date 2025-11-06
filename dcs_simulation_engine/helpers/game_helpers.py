@@ -15,7 +15,12 @@ def get_game_config(game_name: str) -> str:
         try:
             with path.open("r", encoding="utf-8") as f:
                 doc = yaml.safe_load(f) or {}
-            doc_name: str = doc.get("name")
+            doc_name = doc.get("name", None)
+            if not doc_name:
+                logger.warning(
+                    f"Game config {path} has no top-level 'name' field. Skipping."
+                )
+                continue
             if doc_name:
                 names_found.append(doc_name)
             if doc_name and doc_name.strip().lower() == game_name.strip().lower():
@@ -26,5 +31,6 @@ def get_game_config(game_name: str) -> str:
             )
             continue
     raise FileNotFoundError(
-        f"No game config with name={game_name!r} found in {games_dir}. Found: {names_found}"
+        f"No game config with name={game_name!r} found in {games_dir}."
+        f" Found: {names_found}"
     )
