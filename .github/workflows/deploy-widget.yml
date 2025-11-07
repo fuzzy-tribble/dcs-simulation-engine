@@ -46,13 +46,13 @@ jobs:
       - name: Build fly config from inputs
         run: |
           cat > fly.generated.toml <<'TOML'
-          app = 'simulation-engine-widget-${{ github.event.inputs.experiment_id }}'
+          app = 'simulation-widget-${{ github.event.inputs.experiment_id }}'
           primary_region = '${{ env.PRIMARY_REGION }}'
 
           [build]
 
           [processes]
-            web = 'poetry run python -m scripts.run_widget --game-name ${{ env.GAME_NAME }} --port ${{ env.PORT }} --host 0.0.0.0 --banner "$${{ env.BANNER }}" --show-npc-selector ${{ env.SHOW_NPC_SELECTOR }} --show-pc-selector ${{ env.SHOW_PC_SELECTOR }}'
+            web = 'poetry run python -m scripts.run_widget --source "simulation-widget-${{ github.event.inputs.experiment_id }}" --game-name ${{ env.GAME_NAME }} --port ${{ env.PORT }} --host 0.0.0.0 --banner "$${{ env.BANNER }}" --show-npc-selector ${{ env.SHOW_NPC_SELECTOR }} --show-pc-selector ${{ env.SHOW_PC_SELECTOR }}'
 
           [http_service]
             internal_port = ${{ env.PORT }}
