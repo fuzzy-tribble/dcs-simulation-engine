@@ -67,7 +67,13 @@ jobs:
             cpu_kind = 'shared'
             cpus = 1
           TOML
-
+      - name: Launch or attach to Fly app
+        run: |
+          if flyctl apps list | grep -q "simulation-widget-${{ github.event.inputs.experiment_id }}"; then
+            echo "App exists, skipping creation."
+          else
+            flyctl apps create simulation-widget-${{ github.event.inputs.experiment_id }} --region ${{ env.PRIMARY_REGION }}
+          fi
       - name: Deploy
         run: |
           flyctl deploy \

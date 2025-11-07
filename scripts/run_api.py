@@ -70,12 +70,6 @@ def parse_args() -> argparse.Namespace:
         help="Number of worker processes (ignored when --reload is set).",
     )
     parser.add_argument(
-        "--log-config",
-        type=str,
-        default="configs/logger-api.config.yml",
-        help="Path to a logging config YAML for the API runner.",
-    )
-    parser.add_argument(
         "--banner",
         type=str,
         default=None,
@@ -88,7 +82,12 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Increase console verbosity: -v for INFO, -vv for DEBUG.",
     )
-    # TODO: add source argument to help track origin of API runs
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="Source identifier for this run (used in logging, database entries, etc.).",
+    )
     return parser.parse_args()
 
 
@@ -132,7 +131,7 @@ def run(args: argparse.Namespace) -> int:
 
         # Log a concise startup line
         logger.info(
-            f"Starting API ({args.host}:{args.port}) "
+            f"Starting API..."
             f"(reload={args.reload}, workers={workers if workers else 1})"
         )
 
@@ -147,6 +146,9 @@ def run(args: argparse.Namespace) -> int:
             workers=workers,
             # Hand logging to Loguru; avoid uvicorn's default dictConfig
             log_config=None,
+        )
+        logger.info(
+            f"API server running at http://{args.host}:{args.port}/docs and http://{args.host}:{args.port}/redoc"
         )
         server = uvicorn.Server(config)
 
@@ -169,17 +171,19 @@ def main() -> None:
     """
     args = parse_args()
 
-    # Configure project logging
-    try:
-        configure_logger(args.log_config)
-    except Exception as e:
-        # Fall back to default Loguru sink but proceed
+    if args.source is None:
         logger.warning(
-            f"Failed to load log config at '{args.log_config}'; "
-            f"using default logger. ({e})"
+            "No source was provided for run, defaulting to 'api-default'."
+            " Source helps track the origin of the simulation in database entries, etc."
         )
+        args.source = "api-default"
 
-    # Optional console verbosity side channel
+    try:
+        configure_logger(source=args.source)
+    except Exception as e:
+        logger.warning(f"Failed to configure logger with source '{args.source}': {e}")
+
+    # --- configure console side channel based on -v
     if args.verbose > 0:
         level = "DEBUG" if args.verbose > 1 else "INFO"
         logger.add(

@@ -7,8 +7,6 @@ from loguru import logger
 from dcs_simulation_engine.cli.runner import run_cli
 from dcs_simulation_engine.helpers.logging_helpers import configure_logger
 
-configure_logger("configs/logger-cli.config.yml")
-
 
 def main() -> None:
     """Main entrypoint for running the CLI."""
@@ -37,23 +35,26 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    if args.source is None:
+        logger.warning(
+            "No source was provided for run, defaulting to 'cli-default'."
+            " Source helps track the origin of the simulation in database entries, etc."
+        )
+        args.source = "cli-default"
+
+    try:
+        configure_logger(source=args.source)
+    except Exception as e:
+        logger.warning(f"Failed to configure logger with source '{args.source}': {e}")
+
     # --- configure console side channel based on -v
     if args.verbose > 0:
-        # logger.remove()  # remove all existing sinks (including default stderr)
-        # re-add file log via configure_logger already called
         level = "DEBUG" if args.verbose > 1 else "INFO"
         logger.add(
             sys.stderr,
             level=level,
             format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
         )
-
-    if args.source is None:
-        logger.warning(
-            "No source was provided for CLI run, defaulting to 'cli-default'."
-            " Source helps track the origin of the simulation in database entries, etc."
-        )
-        args.source = "cli-default"
 
     try:
         run_cli(

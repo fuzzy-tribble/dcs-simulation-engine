@@ -133,13 +133,17 @@ def main() -> None:
     """Main entrypoint for running the widget."""
     args = parse_args()
 
-    try:
-        configure_logger(args.log_config)
-    except Exception as e:
+    if args.source is None:
         logger.warning(
-            f"Failed to load log config at '{args.log_config}'; \
-                using default logger. ({e})"
+            "No source was provided for WIDGET run, defaulting to 'widget-default'."
+            " Source helps track the origin of the simulation in database entries, etc."
         )
+        args.source = "widget-default"
+
+    try:
+        configure_logger(source=args.source)
+    except Exception as e:
+        logger.warning(f"Failed to configure logger with source '{args.source}': {e}")
 
     # --- configure console side channel based on -v
     if args.verbose > 0:
@@ -149,13 +153,6 @@ def main() -> None:
             level=level,
             format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
         )
-
-    if args.source is None:
-        logger.warning(
-            "No source was provided for WIDGET run, defaulting to 'widget-default'."
-            " Source helps track the origin of the simulation in database entries, etc."
-        )
-        args.source = "widget-default"
 
     code = run(args)
     sys.exit(code)

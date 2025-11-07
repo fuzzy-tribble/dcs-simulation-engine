@@ -60,19 +60,16 @@ data_collection_settings:
 character_settings:
   pc:
     valid:
-        # characters: { 'where': { $or: [ { hid: 'human-normative' }, { common_descriptors: { $regex: /human-?like/i } } ] } }
-        characters:
-            $or:
-              - hid: "human-normative"
-              - common_descriptors:
-                  $regex: "human-?like"
-                  $options: "i"
+        characters: { 'where': { common_descriptors: { $regex: "/human-?like/i" } } }
+        # characters:
+        #     $or:
+        #       - hid: "human-normative"
+        #       - common_descriptors:
+        #           $regex: "human-?like"
+        #           $options: "i"
   npc:
     valid:
-        characters:
-          where:
-            $ne:
-              - hid: "human-normative"
+        characters: { 'where': { $ne: { hid: "human-normative" } } }
         # characters: { 'where': { $ne : { hid: 'human-normative' } } } # valid if the npc is not human normative
     # invalid:
     #   runs:
