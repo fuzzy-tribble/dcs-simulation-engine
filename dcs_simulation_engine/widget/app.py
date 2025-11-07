@@ -22,6 +22,10 @@ from dcs_simulation_engine.widget.wiring import wire_handlers
 
 MAX_TTL_SECONDS = 24 * 3600  # 24 hours
 
+# TODO: pre-release - update consent submission to use client side encryption and store
+#  pii in write only pii collection with player id and other non-pii form info in
+# read/write players/runs collections
+
 
 def _cleanup(state: gr.State) -> None:
     """Clean up resources associated with a session."""

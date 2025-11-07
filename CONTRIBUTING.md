@@ -1,16 +1,18 @@
 # Contributing Guidelines
 
+TODO: pre-release - update this doc
+
 Fork the repo and submit a PR with your changes. 
 
 *(No specific format is required for PRs at this point...as long as its reasonable/understandble and focuses on the core development areas needed (discussed below) it will be considered.)*
 
-## Creating new characters
+## Workflow for Creating New Characters
 
 To create a new character, follow these steps:
 1. Add the character definition to the `database_seeds/characters.json` file. Use existing character entries as examples.
 2. ...
 
-## Creating new experiments/games
+## Workflow for Creating and Releasing New Experiments/Games
 
 To create a new game/experiment configuration:
 
@@ -118,7 +120,7 @@ OR you can run any of the scripts by typing copi (tab completion to get the copi
 Running the `run_cli` script looks like this 
 ![run_cli](images/run_cli.png)
 
-and outputs TODO
+
 
 #### Run API
 

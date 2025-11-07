@@ -2,6 +2,7 @@
 *tmp
 stderr
 
+site/
 database_backups
 
 *creds.json

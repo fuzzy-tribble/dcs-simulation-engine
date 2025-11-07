@@ -1,6 +1,6 @@
 ### Action for building and deploying documentation to GitHub Pages ###
 # builds mkdocs and deploys to GitHub Pages on push to main or master branch #
-name: docs
+name: Built and Deploy Docs
 on:
   push:
   workflow_dispatch:

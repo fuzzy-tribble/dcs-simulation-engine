@@ -25,6 +25,7 @@ def main() -> None:
     parser.add_argument("--access-key", type=str, default=None)
     parser.add_argument("--pc-choice", type=str, default=None)
     parser.add_argument("--npc-choice", type=str, default=None)
+    parser.add_argument("--source", type=str, default=None)
 
     parser.add_argument(
         "-v",
@@ -47,10 +48,17 @@ def main() -> None:
             format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
         )
 
+    if args.source is None:
+        logger.warning(
+            "No source was provided for CLI run, defaulting to 'cli-default'."
+            " Source helps track the origin of the simulation in database entries, etc."
+        )
+        args.source = "cli-default"
+
     try:
         run_cli(
             game=args.game,
-            source="cli",
+            source=args.source,
             pc_choice=args.pc_choice,
             npc_choice=args.npc_choice,
             access_key=args.access_key,

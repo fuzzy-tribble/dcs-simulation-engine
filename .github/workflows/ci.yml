@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   # trigger on any push to any branch and on any pull request

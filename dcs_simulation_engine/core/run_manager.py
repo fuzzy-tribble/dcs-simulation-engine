@@ -26,9 +26,9 @@ from dcs_simulation_engine.helpers.game_helpers import get_game_config
 from dcs_simulation_engine.utils.chat import ChatOpenRouter
 from dcs_simulation_engine.utils.file import safe_timestamp, unique_fpath
 
-# TODO: add safety/validation heuristic for overly complex inputs liek really long
-# actions....length heuristic using tokens or character threshold
-# TODO: what prevents user from inputting two things
+# TODO: pre-release - add safety/validation heuristic for overly complex inputs like
+# really long actions....length heuristic using tokens or character threshold
+# TODO: pre-release - what prevents user from inputting two things
 # really fast and flooding the system??
 
 
@@ -132,6 +132,9 @@ class RunManager(BaseModel):
         player_id: Optional[str] = None,
     ) -> "RunManager":
         """Create a new run with default or provided parameters."""
+        # TODO: if course is "unknown", log warning that run saves may be hard to track
+
+        game_config: Optional[GameConfig] = None
         if isinstance(game, str):
             game_config_fpath = Path(get_game_config(game)).resolve()
         elif isinstance(game, Path):
@@ -141,20 +144,19 @@ class RunManager(BaseModel):
         else:
             raise TypeError("Invalid game parameter type.")
 
-        logger.debug(
-            f"Create class method called with game_config_fpath={game_config_fpath}"
-        )
+        logger.debug(f"Create class method called with game={game}")
 
         # Load game config from YAML
-        try:
-            game_config = GameConfig.from_yaml(game_config_fpath)
-        except Exception as e:
-            logger.error(
-                f"Loading game config from yaml file {game_config_fpath} \
-                    failed. This likely means there is a syntax error \
-                        in the YAML file. \n{e}"
-            )
-            raise
+        if not game_config:
+            try:
+                game_config = GameConfig.from_yaml(game_config_fpath)
+            except Exception as e:
+                logger.error(
+                    f"Loading game config from yaml file {game_config_fpath} \
+                        failed. This likely means there is a syntax error \
+                            in the YAML file. \n{e}"
+                )
+                raise
 
         # Setup player info from access settings
         try:
@@ -226,8 +228,6 @@ class RunManager(BaseModel):
                     f"Applying stopping conditions from game config: \
                         {game_config.stopping_conditions}"
                 )
-                # Use the instance method to ensure proper merging
-                # TODO: merge
             else:
                 logger.debug("No stopping conditions to apply from game config.")
         except Exception as e:
@@ -307,9 +307,6 @@ class RunManager(BaseModel):
 
         Returns the updated state (dict).
         """
-        # TODO: pre v1 - consider adding a /feedback command that allows user to give
-        # feedback on anything in the context of their transcript/conversation
-
         # logger.debug(f"RunManager step called with user_input: {user_input!r}")
 
         self._ensure_stopping_conditions()  # sets self.stopped if needed
@@ -328,7 +325,7 @@ class RunManager(BaseModel):
                 return self.state  # type: ignore
 
             elif cmd in ("feedback", "fb"):
-                # TODO: implement more robust feedback handling
+                # TODO: pre-release - implement more robust feedback handling
                 logger.warning(
                     f"Feedback received: {parts[1] if len(parts) > 1 else ''}"
                 )
@@ -517,7 +514,7 @@ class RunManager(BaseModel):
             if not hasattr(self, attr):
                 logger.error(f"Unknown stopping condition attribute: {attr}. Skipping.")
                 continue
-            # TODO: this needs to handle @computed_field @properties
+            # FIXME: pre-release - verify that this handles @computed_field @properties
             # too like total turns
             attr_value = getattr(self, attr)
 

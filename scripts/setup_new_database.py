@@ -18,6 +18,12 @@ Example:
 $ poetry run python setup_new_database.py
 """
 
+# TODO: pre-release - update db init script to create write only
+# access on pii collection and read/write on others.
+
+# TODO: pre-release - make a demo role that has no write access on any collection
+# (just uses char sheets) and use that role for demo launches.
+
 from __future__ import annotations
 
 import json

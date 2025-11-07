@@ -105,5 +105,5 @@ def predicate(expr: Optional[str], state: Mapping[str, Any]) -> bool:
         return False
 
 
-# TODO: add validation for condition expressions in build like we did for node
-# jinja evals in compile().
+# TODO: pre-release - add validation for condition expressions in build like we
+#  did for node jinja evals in compile().

@@ -16,6 +16,7 @@ import dcs_simulation_engine.helpers.database_helpers as dbh
 def test_database_is_seeded() -> None:
     """Verify that the database is seeded with initial data."""
     db = dbh.get_db()
+    # TODO: verify db is mocked or test db
     collections = db.list_collection_names()
     logger.debug(f"Database collections: {collections}")
     assert "characters" in collections

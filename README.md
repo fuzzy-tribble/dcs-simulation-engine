@@ -5,11 +5,11 @@
 
 *A scenario-based simulation engine for diverse forms of cognitive systems to play, learn and measure their goal inference capabilities.*
 
-[![API Demo](https://img.shields.io/badge/API%20-007ACC)](https://simulation-engine-demo.fly.dev:8000)          <!-- blue -->
-[![Web Demo](https://img.shields.io/badge/Demo%20-28A745)](https://simulation-engine-demo.fly.dev/) <!-- green -->
+[![API Demo](https://img.shields.io/badge/API%20-007ACC)](https://simulation-api-demo.fly.dev:8000)          <!-- blue -->
+[![Web Demo](https://img.shields.io/badge/Demo%20-28A745)](https://simulation-widget-demo.fly.dev/) <!-- green -->
 [![Codebase Docs](https://img.shields.io/badge/Codebase%20Docs%20-FF8C00)](https://fuzzy-tribble.github.io/dcs-simulation-engine/) <!-- orange -->
 [![Project Wiki](https://img.shields.io/badge/Project%20Wiki%20-FF69B4)](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki) <!-- pink -->
-<!-- TODO: add built-badge links for tests, linting, coverage, etc. -->
+[![Build Status](https://github.com/fuzzy-tribble/dcs-simulation-engine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fuzzy-tribble/dcs-simulation-engine/actions/workflows/ci.yml)
 
 ## What is this?
 
@@ -21,7 +21,7 @@ This is a textual scenario-based simulation engine that **simulates diverse form
 Interfacing between different cognitive systems (even within the same species and cultures, such as neurotypical and autistic humans) is often difficult. **We lack reliable benchmarks or metrics for evaluating how well an AI, human, or other cognitive system understands the goals of others outside their own cognitive profiles.** This simulation engine addresses this by modeling interaction scenarios where humans, AI systems, and other agents — with distinct sensory, perceptual, regulatory, and action modalities — engage and attempt to discover what the other cares about and what their goalspace looks like.
 
 ## How does it work?
-It does this through back-and-forth textual roleplay (see a demo [here](https://todo.com)). A participant defines its cognitive profile then, the simulation engine generates a scene, and roleplays another cognitive system. The participant must then infer that system’s goals through real-time hypothesis generation and testing — sometimes by developing new communication protocols or adapting to unfamiliar interfaces and/or non-neurotypical human norms. The goals may range from complex motivations to simple homeostatic needs, such as a cell maintaining its pH within a narrow range. (For more background information, refer to the [Project Wiki](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki)).
+It does this through back-and-forth textual roleplay (checkout demo [here](https://simulation-widget-demo.fly.dev/)). A participant defines its cognitive profile then, the simulation engine generates a scene, and roleplays another cognitive system. The participant must then infer that system’s goals through real-time hypothesis generation and testing — sometimes by developing new communication protocols or adapting to unfamiliar interfaces and/or non-neurotypical human norms. The goals may range from complex motivations to simple homeostatic needs, such as a cell maintaining its pH within a narrow range. (For more background information, refer to the [Project Wiki](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki)).
 
 After a session, the participant’s performance is evaluated and compared against other participants (including other humans, AI systems, etc.). This produces a metric for how well various types of cognitive systems can reliably infer the goals of other cognitive systems as they diverge from the communication and interaction styles of the participating system.
 
@@ -31,13 +31,13 @@ Its primary use cases are
 
 ## How can I use it?
 
-### Option 1 - Try the [web demo](https://todo.com) online
+### Option 1 - Try the [web demo](https://simulation-widget-demo.fly.dev/) online
 If you want to see how it works or evaluate your own ability to infer the goals of others as they become progressively more different from the "norm", this is a good starting point.
 
 <img src="images/web-demo.png" alt="Web Demo">
 
-### Option 2 - Run using the [API](https://todo.com)
-We host an API so you can integrate the simulation engine into your own applications, research, workflows, etc. See the [Codebase Docs](https://todo.com) for more details.
+### Option 2 - Run using the [API](https://simulation-api-demo.fly.dev/)
+We host an API so you can integrate the simulation engine into your own applications, research, workflows, etc. See the [Codebase Docs](https://fuzzy-tribble.github.io/dcs-simulation-engine/) for more details.
 
 <img src="images/api-demo.png" alt="API Demo">
 

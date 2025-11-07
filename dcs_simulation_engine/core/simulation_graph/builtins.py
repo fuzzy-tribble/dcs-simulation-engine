@@ -75,7 +75,8 @@ def raise_error(state: StateSchema, context: ContextSchema, message: str) -> Non
 
     Takes an error message string and raises an error.
     """
-    # TODO: notify user? Update state? end-game reason? update end game reason?
+    # TODO: pre-release - notify user? Update state? end-game reason?
+    #  update end game reason?
     # Issue a special message?
     # render message from state
     tmpl = PromptTemplate.from_template(message, template_format="jinja2")

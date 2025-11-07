@@ -1,6 +1,4 @@
-"""Entrypoint to run the Gradio web UI.
-
-Launches the Gradio app defined in `dcs_simulation_engine.widget.app.build_app`.
+"""Entrypoint to run the widget UI.
 
 Example:
     poetry run python -m scripts.run_widget
@@ -53,7 +51,7 @@ def parse_args() -> argparse.Namespace:
         help="Path to a logging config YAML for the web runner.",
     )
     parser.add_argument(
-        "--game-name",
+        "--game",
         type=str,
         default="explore",
         help="Name of the game to launch (default: explore).",
@@ -77,14 +75,20 @@ def parse_args() -> argparse.Namespace:
         help="Create a public Gradio link.",
     )
     parser.add_argument(
-        "--show-npc-selector",
+        "--no-show-npc-selector",
         action="store_true",
-        help="Show the non-player character (NPC) selector in the widget.",
+        help="Hide the non-player character (NPC) selector in the widget.",
     )
     parser.add_argument(
-        "--show-pc-selector",
+        "--no-show-pc-selector",
         action="store_true",
-        help="Show the player character (PC) selector in the widget.",
+        help="Hide the player character (PC) selector in the widget.",
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="Source helps track the origin of the simulation in database entries, etc.",
     )
     return parser.parse_args()
 
@@ -94,11 +98,13 @@ def run(args: argparse.Namespace) -> int:
     app = None
     try:
         logger.debug("Building Gradio widget...")
+        # TODO: add source
         app = build_app(
-            game_name=args.game_name,
+            game_name=args.game,
             banner=args.banner,
-            show_npc_selector=args.show_npc_selector,
-            show_pc_selector=args.show_pc_selector,
+            show_npc_selector=not args.no_show_npc_selector,
+            show_pc_selector=not args.no_show_pc_selector,
+            # source=args.source,
         )
 
         logger.info(f"Launching Gradio widget ({args.host}:{args.port})...")
@@ -124,7 +130,7 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
-    """Main entrypoint for running the Gradio app."""
+    """Main entrypoint for running the widget."""
     args = parse_args()
 
     try:
@@ -143,6 +149,13 @@ def main() -> None:
             level=level,
             format="<green>{time:HH:mm:ss}</green> | <level>{message}</level>",
         )
+
+    if args.source is None:
+        logger.warning(
+            "No source was provided for WIDGET run, defaulting to 'widget-default'."
+            " Source helps track the origin of the simulation in database entries, etc."
+        )
+        args.source = "widget-default"
 
     code = run(args)
     sys.exit(code)

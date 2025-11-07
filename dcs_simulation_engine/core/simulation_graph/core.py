@@ -247,7 +247,7 @@ class SimulationGraph:
         errors = []
         ORDERED_OBJS = [("node", node), ("node.config", getattr(node, "config", None))]
 
-        # TODO: fix this...doesn't seem to be catching template render errors
+        # FIXME: fix this...doesn't seem to be catching template render errors
         # ...eg if StateSchema doesn't have that field.
 
         for owner, obj in ORDERED_OBJS:
