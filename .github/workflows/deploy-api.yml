@@ -59,3 +59,5 @@ jobs:
             --remote-only \
             --config fly.generated.toml \
             --app "${FLY_APP}"
+            --env MONGO_URI="${{ secrets.MONGO_URI }}" \
+            --env OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" \
