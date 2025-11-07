@@ -73,7 +73,6 @@ jobs:
             echo "App exists, skipping creation."
           else
             flyctl apps create simulation-widget-${{ github.event.inputs.experiment_id }} --org personal --yes
-            flyctl regions set ${{ env.PRIMARY_REGION }} --app simulation-widget-${{ github.event.inputs.experiment_id }}
           fi
       - name: Deploy
         run: |
