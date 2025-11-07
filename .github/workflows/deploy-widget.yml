@@ -42,7 +42,7 @@ jobs:
           [build]
 
           [processes]
-            web = 'poetry run python -m scripts.run_widget --source "simulation-widget-${{ github.event.inputs.experiment_id }}" --game ${{ env.GAME }} --port ${{ env.PORT }} --host 0.0.0.0 --banner "$${{ env.BANNER }}"
+            web = 'poetry run python -m scripts.run_widget --source "simulation-widget-${{ github.event.inputs.experiment_id }}" --game ${{ env.GAME }} --port ${{ env.PORT }} --host 0.0.0.0 --banner "$${{ env.BANNER }}"'
 
           [http_service]
             internal_port = ${{ env.PORT }}
