@@ -72,7 +72,8 @@ jobs:
           if flyctl apps list | grep -q "simulation-widget-${{ github.event.inputs.experiment_id }}"; then
             echo "App exists, skipping creation."
           else
-            flyctl apps create simulation-widget-${{ github.event.inputs.experiment_id }} --region ${{ env.PRIMARY_REGION }}
+            flyctl apps create simulation-widget-${{ github.event.inputs.experiment_id }} --org personal --yes
+            flyctl regions set ${{ env.PRIMARY_REGION }} --app simulation-widget-${{ github.event.inputs.experiment_id }}
           fi
       - name: Deploy
         run: |
