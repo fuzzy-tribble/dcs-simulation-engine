@@ -5,7 +5,6 @@ from langgraph.types import Command
 from loguru import logger
 
 from dcs_simulation_engine.core.run_manager import RunManager
-from tests._exploratory.langraph_inners import AIMessage
 
 state_tests = {
     "initial_state": {
