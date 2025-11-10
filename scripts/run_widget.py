@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 
 from dcs_simulation_engine.helpers.logging_helpers import configure_logger
-from dcs_simulation_engine.widget.app import build_app
+from dcs_simulation_engine.widget.widget import build_widget
 
 
 def _port(value: str) -> int:
@@ -75,12 +75,12 @@ def parse_args() -> argparse.Namespace:
         help="Create a public Gradio link.",
     )
     parser.add_argument(
-        "--no-show-npc-selector",
+        "--hide-npc-selector",
         action="store_true",
         help="Hide the non-player character (NPC) selector in the widget.",
     )
     parser.add_argument(
-        "--no-show-pc-selector",
+        "--hide-pc-selector",
         action="store_true",
         help="Hide the player character (PC) selector in the widget.",
     )
@@ -99,11 +99,11 @@ def run(args: argparse.Namespace) -> int:
     try:
         logger.debug("Building Gradio widget...")
         # TODO: add source
-        app = build_app(
+        app = build_widget(
             game_name=args.game,
             banner=args.banner,
-            show_npc_selector=not args.no_show_npc_selector,
-            show_pc_selector=not args.no_show_pc_selector,
+            show_npc_selector=not args.hide_npc_selector,
+            show_pc_selector=not args.hide_pc_selector,
             # source=args.source,
         )
 

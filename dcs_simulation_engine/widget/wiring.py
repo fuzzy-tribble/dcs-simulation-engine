@@ -3,25 +3,25 @@
 import gradio as gr
 
 from dcs_simulation_engine.widget.handlers import (
-    on_consent_back,
     on_consent_submit,
+    on_gate_continue,
     on_generate_token,
-    on_play_gated,
-    on_play_ungated,
+    on_play,
     on_send,
     on_token_continue,
-    poll_fn,
 )
 from dcs_simulation_engine.widget.ui.chat import ChatUI
 from dcs_simulation_engine.widget.ui.consent import ConsentUI
-from dcs_simulation_engine.widget.ui.landing import LandingUI
+from dcs_simulation_engine.widget.ui.gate import GateUI
+from dcs_simulation_engine.widget.ui.play import PlayUI
 
 
 def wire_handlers(
     state: gr.State,
-    landing: LandingUI,
+    gate: GateUI,
+    consent: ConsentUI,
+    play: PlayUI,
     chat: ChatUI,
-    consent: ConsentUI | None,  # maybe None if ungated
 ) -> None:
     """Wire event handlers to widget components."""
     # Wire chat page handlers
@@ -31,7 +31,6 @@ def wire_handlers(
         inputs=[state, chat.user_box, chat.events],
         outputs=[state, chat.user_box, chat.events],
     )
-
     chat.user_box.submit(
         # wire enter key in user input box
         fn=on_send,
@@ -39,90 +38,78 @@ def wire_handlers(
         outputs=[state, chat.user_box, chat.events],
     )
 
-    chat.timer.tick(
-        # wire polling time for new events/messages (and to start)
-        fn=poll_fn,
-        inputs=[state, chat.events],
+    # Wire play
+    play.play_btn.click(
+        fn=on_play,
+        inputs=[state],
         outputs=[
             state,
-            chat.events,
-            chat.timer,
+            play.container,
+            chat.container,
             chat.user_box,
             chat.send_btn,
             chat.loader,
         ],
     )
 
-    # Wire ungated handlers
-    if landing.ungated_play_btn:
-        landing.ungated_play_btn.click(
-            fn=on_play_ungated,
-            inputs=[state],
-            outputs=[
-                state,
-                landing.container,
-                chat.container,
-                chat.user_box,
-                chat.send_btn,
-                chat.loader,
-            ],
-        )
-
-    # Wire landing page handlers
-    if landing.gated_play_btn:
-        landing.gated_play_btn.click(
-            fn=on_play_gated,
-            inputs=[state, landing.token_box],
-            outputs=[
-                state,
-                landing.container,
-                chat.container,
-                chat.user_box,
-                chat.send_btn,
-                chat.loader,
-                landing.token_box,
-                landing.token_error_box,
-            ],
-        )
-
-    # Wire generate token button if it exists (gated only)
-    if landing.generate_token_btn:
-        landing.generate_token_btn.click(
-            fn=on_generate_token,
-            inputs=[state],
-            outputs=[state, landing.container, consent.form_group],
-        )
-
-    # Wire consent page handlers
-    if consent:
-        consent.back_btn.click(
-            fn=on_consent_back,
-            inputs=[state],
-            outputs=[state, landing.container, consent.form_group],
-        )
-        consent.submit_btn.click(
-            fn=on_consent_submit,
+    # Wire gate page if present
+    if gate:
+        # Wire gate continue button
+        gate.continue_btn.click(
+            fn=on_gate_continue,
             inputs=[
                 state,
-                gr.State(list(consent.fields.keys())),
-                *consent.fields.values(),
+                gate.token_box,  # token value input
             ],
             outputs=[
                 state,
-                consent.form_group,
-                consent.token_group,
-                consent.token_text,
-                landing.token_error_box,
+                gate.container,
+                play.container,
+                play.pc_dropdown,
+                play.npc_dropdown,
+                gate.token_box,
+                gate.token_error_box,
             ],
         )
-        consent.token_continue_btn.click(
-            fn=on_token_continue,
-            inputs=[state],
-            outputs=[
-                state,
-                landing.container,
-                consent.token_group,
-                consent.form_group,
-                consent.token_text,
-            ],
-        )
+
+        # Wire gate generate token button
+        if consent:
+            gate.generate_token_btn.click(
+                fn=on_generate_token,
+                inputs=[state],
+                outputs=[
+                    state,
+                    gate.container,
+                    consent.form_group,
+                    gate.token_box,
+                    gate.token_error_box,
+                ],
+            )
+
+            # Wire consent page handlers
+            consent.submit_btn.click(
+                fn=on_consent_submit,
+                inputs=[
+                    state,
+                    gr.State(list(consent.fields.keys())),
+                    *consent.fields.values(),
+                ],
+                outputs=[
+                    state,
+                    consent.form_group,
+                    consent.token_group,
+                    consent.token_text,
+                    gate.token_error_box,
+                ],
+            )
+            consent.token_continue_btn.click(
+                fn=on_token_continue,
+                inputs=[state],
+                outputs=[
+                    state,
+                    gate.container,
+                    consent.token_group,
+                    consent.form_group,
+                    consent.token_text,
+                ],
+            )

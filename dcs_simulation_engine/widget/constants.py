@@ -1,17 +1,16 @@
 """Constants for the widget package."""
 
-UNGATED_MD = """
+PLAY_MD = """
 ## Welcome
 
-Thank you for your interest in the simulation engine. This is an open-access
-game.
+Thank you for your interest in the simulation engine.
 
 ### Instructions
 
-To continue, simply click the "Play" button below.
+Click "Play" when you're ready to begin.
 """
 
-GATED_MD = """
+GATE_MD = """
 ## Welcome
 
 You've been given this access link to play a game as part of your participation

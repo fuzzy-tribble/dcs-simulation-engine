@@ -7,19 +7,18 @@ from typing import Any, Dict, List, NamedTuple, Tuple
 import gradio as gr
 
 
+# TODO: pre-release - update consent submission to use client side encryption and store
+#  pii in write only pii collection with player id and other non-pii form info in
+# read/write players/runs collections
 class ConsentUI(NamedTuple):
     """Holds references to consent form UI components."""
 
     form_group: gr.Group
     fields: Dict[str, gr.Component]
     submit_btn: gr.Button
-    back_btn: gr.Button
     token_group: gr.Group
     token_text: gr.Textbox
     token_continue_btn: gr.Button
-
-
-# --- helpers ---------------------------------------------------------------
 
 
 def _spacer(h: int = 16) -> None:
@@ -27,7 +26,7 @@ def _spacer(h: int = 16) -> None:
     gr.HTML(f"<div style='height:{h}px'></div>")
 
 
-# Map your config answer_type -> Gradio component factory
+# TODO: update GameConfig form to use gradio component kwargs (eg. label, placeholder, etc.)
 _COMPONENTS = {
     "text": lambda q: gr.Textbox(
         label=q.get("prompt", ""),
@@ -141,7 +140,7 @@ def collect_consent_answers(
 # --- builder ---------------------------------------------------------------
 
 
-def build_consent(consent_config: Dict[str, Any]) -> ConsentUI:
+def build_consent(access_gated: bool, consent_config: Dict[str, Any]) -> ConsentUI:
     """Builds consent form UI components.
 
     Builds two exclusive views:
@@ -159,44 +158,60 @@ def build_consent(consent_config: Dict[str, Any]) -> ConsentUI:
       ]
     }
     """
+    if not access_gated:
+        return ConsentUI(
+            form_group=gr.Group(visible=False),
+            fields={},
+            submit_btn=gr.Button(visible=False),
+            token_group=gr.Group(visible=False),
+            token_text=gr.Textbox(visible=False),
+            token_continue_btn=gr.Button(visible=False),
+        )
+
+    # Build consent form
     with gr.Group(visible=False) as form_group:
-        # Preamble
-        pre_md = consent_config.get("preamble") or "**Consent**"
-        gr.Markdown(pre_md)
-        _spacer(8)
-
-        # Dynamic questions
-        fields: Dict[str, gr.Component] = {}
-        for q in consent_config.get("questions", []):
-            comp = _make_component(q)
-            fields[q.get("id") or q.get("name") or q.get("prompt", "q")] = comp
-
-        _spacer(8)
         with gr.Row():
-            back_btn = gr.Button("Back", variant="secondary")
-            submit_btn = gr.Button("I Agree & Continue", variant="primary")
+            with gr.Column():
+                pre_md = consent_config.get("preamble") or "**Consent**"
+                gr.Markdown(pre_md)
+                _spacer(8)
 
+                fields: Dict[str, gr.Component] = {}
+                for q in consent_config.get("questions", []):
+                    comp = _make_component(q)
+                    fields[q.get("id") or q.get("name") or q.get("prompt", "q")] = comp
+
+                _spacer(8)
+                with gr.Row():
+                    submit_btn = gr.Button("I Agree & Continue", variant="primary")
+
+    # Built one-time token display
     with gr.Group(visible=False) as token_group:
-        gr.Markdown("### Your One-Time Access Token")
-        gr.Markdown(
-            "> Save this **now**. "
-            "You won’t be able to see it again here after you continue."
-        )
-        token_text = gr.Textbox(
-            label="Token",
-            interactive=False,
-            lines=1,
-            show_label=True,
-        )
-        _spacer(8)
         with gr.Row():
-            token_continue_btn = gr.Button("I have saved my token", variant="primary")
+            with gr.Column():
+                gr.Markdown(
+                    """
+                    ### Your Access Token
+                    *This token will only be shown once. We do not it and you 
+                    will not able able to see it again so please store it 
+                    somewhere safe. If you lose it, you will need to 
+                    generate a new one.*
+                    """
+                )
+                _spacer(8)
+                token_text = gr.Textbox(
+                    interactive=False, lines=1, show_label=False, container=False
+                )
+                _spacer(8)
+                with gr.Row():
+                    token_continue_btn = gr.Button(
+                        "I have saved my token.", variant="primary"
+                    )
 
     return ConsentUI(
         form_group=form_group,
         fields=fields,
         submit_btn=submit_btn,
-        back_btn=back_btn,
         token_group=token_group,
         token_text=token_text,
         token_continue_btn=token_continue_btn,

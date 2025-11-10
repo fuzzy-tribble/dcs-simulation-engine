@@ -7,7 +7,6 @@ simulation's characters (A/B) and graph, similar to the CLI UI.
 from __future__ import annotations
 
 import gradio as gr
-from gradio.themes import Soft
 from loguru import logger
 
 from dcs_simulation_engine.core.game_config import GameConfig
@@ -15,15 +14,12 @@ from dcs_simulation_engine.helpers.game_helpers import get_game_config
 from dcs_simulation_engine.widget.session_state import SessionState
 from dcs_simulation_engine.widget.ui.chat import build_chat
 from dcs_simulation_engine.widget.ui.consent import build_consent
+from dcs_simulation_engine.widget.ui.gate import build_gate
 from dcs_simulation_engine.widget.ui.header import build_header
-from dcs_simulation_engine.widget.ui.landing import build_landing
+from dcs_simulation_engine.widget.ui.play import build_play
 from dcs_simulation_engine.widget.wiring import wire_handlers
 
 MAX_TTL_SECONDS = 24 * 3600  # 24 hours
-
-# TODO: pre-release - update consent submission to use client side encryption and store
-#  pii in write only pii collection with player id and other non-pii form info in
-# read/write players/runs collections
 
 
 def _cleanup(state: gr.State) -> None:
@@ -42,14 +38,16 @@ def _cleanup(state: gr.State) -> None:
         logger.debug("Session cleanup complete.")
 
 
-def build_app(
+def build_widget(
     game_name: str = "explore",
     banner: str | None = None,
-    show_npc_selector: bool = False,
-    show_pc_selector: bool = False,
+    show_npc_selector: bool = True,
+    show_pc_selector: bool = True,
 ) -> gr.Blocks:
     """Build the Gradio UI for running simulations."""
-    logger.info(f"Building Gradio app for game '{game_name}'")
+    logger.info(f"Building Gradio widget for game '{game_name}'")
+
+    ### LOAD GAME CONFIGS/SETTINGS ###
 
     try:
         logger.debug(f"Loading game config for game '{game_name}'")
@@ -60,20 +58,42 @@ def build_app(
         raise e  # terminate build
 
     try:
-        logger.debug("Determining if access gate is required from game config")
+        logger.debug("Checking if access should be gated")
         access_gated = not bool(game_config.is_player_allowed(player_id=None))
         logger.debug(f"Access gate required: {access_gated}")
+        if access_gated:
+            if game_config.access_settings is None:
+                raise ValueError(
+                    "Game config requires access gating but has no access settings"
+                )
+            if game_config.access_settings.consent_form is None:
+                raise ValueError(
+                    "Game config requires access gating but no consent form provided"
+                )
+        else:
+            logger.debug("No access gating required. Prepopulating valid characters.")
+            valid_pcs, valid_npcs = game_config.get_valid_characters()
+            if not valid_pcs:
+                logger.warning("No valid PCs found for unauthenticated access.")
+            if not valid_npcs:
+                logger.warning("No valid NPCs found for unauthenticated access.")
     except Exception as e:
         gr.Error(f"Failed to determine access mode from game config: {e}")
         raise e  # terminate build
 
-    app = gr.Blocks(title="DCS Simulation Engine", theme=Soft())
-    with app:
+    ### BUILD WIDGET ###
+
+    widget = gr.Blocks(
+        title="DCS Simulation Engine",
+    )
+    with widget:
         state = gr.State(
             value=SessionState(
                 access_gated=access_gated,
-                game_name=game_config.name,
-                game_description=game_config.description,
+                game_config=game_config,
+                valid_pcs=valid_pcs if not access_gated else [],
+                valid_npcs=valid_npcs if not access_gated else [],
+                player_id=None,
                 is_user_turn=False,
                 last_seen=0,
             ),
@@ -82,28 +102,36 @@ def build_app(
         )
 
         build_header(game_config, banner)
-
-        # gated or un-gated landing page based on game_config access settings
-        landing = build_landing(access_gated, show_npc_selector, show_pc_selector)
-        consent = None
-        if access_gated:
-            if game_config.access_settings.consent_form is None:
-                raise ValueError(
-                    "Game config requires access gating but no form provided"
-                )
-            consent = build_consent(game_config.access_settings.consent_form)
-
-        # once passed landing (and consent if needed), show main chat interface
         chat = build_chat()
 
-        wire_handlers(state, landing, chat, consent)
+        gate = build_gate(access_gated)
+        if not (
+            game_config.access_settings and game_config.access_settings.consent_form
+        ):
+            raise ValueError(
+                """Game config requires access gating but has no 
+                access settings or consent form"""
+            )
+        consent = build_consent(access_gated, game_config.access_settings.consent_form)
+
+        # Build landing page based on config
+        play = build_play(
+            access_gated=access_gated,
+            show_npc_selector=show_npc_selector,
+            show_pc_selector=show_pc_selector,
+        )
+
+        # Wire up event handlers
+        wire_handlers(state, gate, consent, play, chat)
+
+        ### CLEAN UP ON DISCONNECT ###
 
         def on_unload(req: gr.Request) -> None:
             """Handle per-user client disconnect resources (temp dirs, etc)."""
-            logger.debug(f"User disconnected: {req.session_hash}")
+            logger.debug(f"Client disconnected with session hash: {req.session_hash}")
             _cleanup(state)
 
         # unload runs when the session ends (tab close, refresh, hard nav away)
-        app.unload(on_unload)
+        widget.unload(on_unload)
 
-    return app
+    return widget

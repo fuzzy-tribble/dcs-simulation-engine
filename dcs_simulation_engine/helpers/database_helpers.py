@@ -358,6 +358,7 @@ def list_characters_where(
         projection["hid"] = 1
 
     coll: Collection = get_db()[collection]
+    logger.debug(f"Final query where={where} projection={projection}")
     cursor = coll.find(where, projection=projection)
 
     docs = list(cursor)

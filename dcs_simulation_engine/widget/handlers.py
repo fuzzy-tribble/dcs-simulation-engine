@@ -14,6 +14,7 @@ import gradio as gr
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
+import dcs_simulation_engine.helpers.database_helpers as dbh
 from dcs_simulation_engine.core.run_manager import RunManager
 from dcs_simulation_engine.core.simulation_graph.state import SpecialUserMessage
 from dcs_simulation_engine.widget.session_state import SessionState
@@ -24,10 +25,10 @@ Event = Dict[str, str]
 
 def _create_run(state: SessionState, token_value: Optional[str] = None) -> RunManager:
     """Create a new RunManager and return it."""
-    if "game_name" not in state:
-        raise ValueError("App state is missing game_name required to create run.")
+    if "game_config" not in state:
+        raise ValueError("App state is missing game_config required to create run.")
     run = RunManager.create(
-        game=state["game_name"], source="widget", access_key=token_value
+        game=state["game_config"].name, source="widget", access_key=token_value
     )
     return run
 
@@ -105,12 +106,12 @@ def _ensure_play_running(state: SessionState) -> None:
     state["_play_thread"] = thread
 
 
-def on_play_ungated(
+def on_play(
     state: SessionState,
 ) -> Tuple[
     SessionState,
-    Dict[str, Any],  # landing container update
-    Dict[str, Any],  # chat container update
+    Dict[str, Any],  # play container - hide
+    Dict[str, Any],  # chat container - show
     Dict[str, Any],  # user input box update
     Dict[str, Any],  # send button update
     Dict[str, Any],  # loader update
@@ -119,13 +120,13 @@ def on_play_ungated(
 
     - tries calling RunManager.create and updates state with run
     """
-    logger.debug("on_play_ungated called")
+    logger.debug("on_play called")
     try:
         run = _create_run(state)
         state["run"] = run
         state["queue"] = Queue()
         _ensure_play_running(state)
-        updated_landing_container = gr.update(visible=False)
+        updated_play_container = gr.update(visible=False)
         updated_chat_container = gr.update(visible=True)
         updated_user_box = gr.update(interactive=False)
         updated_send_btn = gr.update(interactive=False)
@@ -136,7 +137,7 @@ def on_play_ungated(
         )
         return (
             state,
-            updated_landing_container,
+            updated_play_container,
             updated_chat_container,
             updated_user_box,
             updated_send_btn,
@@ -147,68 +148,86 @@ def on_play_ungated(
         raise
 
 
-def on_play_gated(state: SessionState, token_value: str) -> Tuple[
+def on_gate_continue(state: SessionState, token_value: str) -> Tuple[
     SessionState,
-    Dict[str, Any],  # landing container update
-    Dict[str, Any],  # chat container update
-    Dict[str, Any],  # user input box update
-    Dict[str, Any],  # send button update
-    Dict[str, Any],  # loader update
+    Dict[str, Any],  # gate container update
+    Dict[str, Any],  # play container update
+    Dict[str, Any],  # play pc selector update
+    Dict[str, Any],  # play npc selector update
     Dict[str, Any],  # token box update
     Dict[str, Any],  # token error box update
 ]:
-    """Handle clicking the Play button on the landing page."""
-    logger.debug("on_play_gated called with token")
+    """Handle clicking the Continue button on the gate page."""
+    logger.debug("on_continue called with token")
     if "access_gated" not in state:
-        raise ValueError("on_play called without access_gated being set in state.")
+        raise ValueError("on_continue called without access_gated being set in state.")
     if state["access_gated"] is False:
-        raise ValueError("on_play_gated called but access_gated is False in state.")
+        raise ValueError("on_continue called but access_gated is False in state.")
 
-    updated_landing_container = gr.update()
-    updated_chat_container = gr.update()
-    updated_user_box = gr.update()
-    updated_send_btn = gr.update()
-    updated_loader = gr.update()
+    updated_gate_container = gr.update()
+    updated_play_container = gr.update()
+    updated_play_pc_selector = gr.update()
+    updated_play_npc_selector = gr.update()
     updated_token_box = gr.update()
+    updated_token_error_box = gr.update()
 
     if not token_value:  # empty token "" or None
         logger.debug(
             "Access gated but no token provided; returning token validation error."
         )
-        updated_token_error_box = gr.update(visible=True, value="Access token required")
+        updated_token_error_box = gr.update(
+            visible=True, value="  Access token required"
+        )
     else:
-        logger.debug("Proceeding to create simulation run.")
         try:
-            run = _create_run(state, token_value=token_value)
-            state["run"] = run
-            state["queue"] = Queue()
-            _ensure_play_running(state)
-            updated_landing_container = gr.update(visible=False)
-            updated_chat_container = gr.update(visible=True)
-            updated_user_box = gr.update(interactive=False)
-            updated_send_btn = gr.update(interactive=False)
-            updated_loader = gr.update(
-                visible=True,
-                value="""⏳ *Setting up simulation and loading 
-                opening scene (this may take a moment)...*""",
-            )
-            updated_token_error_box = gr.update(visible=False, value="")
+            logger.debug("Trying to get player ID from access token.")
+            player_id = dbh.get_player_id_from_access_key(token_value)
+            if not player_id:
+                raise PermissionError("  Invalid access token: no such player.")
+            logger.debug("Access token valid.")
+            state["player_id"] = player_id
+
+            updated_gate_container = gr.update(visible=False)
             updated_token_box = gr.update(value="")
+            updated_token_error_box = gr.update(visible=False, value="")
+            updated_play_container = gr.update(visible=True)
+
+            logger.debug(f"Getting valid characters for game with player: {player_id}")
+            if "game_config" not in state:
+                raise ValueError(
+                    """App state is missing game_config
+                                  required to get characters."""
+                )
+            valid_pcs, valid_npcs = state["game_config"].get_valid_characters()
+            state["valid_pcs"] = valid_pcs
+            state["valid_npcs"] = valid_npcs
+            if not valid_pcs:
+                logger.warning("No valid PCs found for this player.")
+            if not valid_npcs:
+                logger.warning("No valid NPCs found for this player.")
+            updated_play_pc_selector = gr.update(
+                choices=valid_pcs, value=valid_pcs[0] if valid_pcs else None
+            )
+            updated_play_npc_selector = gr.update(
+                choices=valid_npcs, value=valid_npcs[0] if valid_npcs else None
+            )
         except PermissionError as e:
-            logger.warning(f"PermissionError in on_play_gated: {e}")
+            logger.warning(f"PermissionError in on_continue: {e}")
             updated_token_error_box = gr.update(
-                visible=True, value="Invalid access token"
+                visible=True, value="  Invalid access token"
             )
         except Exception as e:
-            logger.error(f"Error while handling on_play_gated: {e}", exc_info=True)
-            raise
+            logger.error("Error while handling on_continue: {}", e, exc_info=True)
+            raise gr.Error(
+                """An internal error occurred and has been logged. 
+                We apologize and are looking into it."""
+            )
     return (
         state,
-        updated_landing_container,
-        updated_chat_container,
-        updated_user_box,
-        updated_send_btn,
-        updated_loader,
+        updated_gate_container,
+        updated_play_container,
+        updated_play_pc_selector,
+        updated_play_npc_selector,
         updated_token_box,
         updated_token_error_box,
     )
@@ -225,21 +244,15 @@ def on_generate_token(
     logger.debug("on_generate_token called")
     updated_landing = gr.update(visible=False)
     updated_consent = gr.update(visible=True)
-    return state, updated_landing, updated_consent
-
-
-def on_consent_back(
-    state: SessionState,
-) -> Tuple[SessionState, Dict[str, Any], Dict[str, Any]]:
-    """Handle clicking the Back button on the consent page.
-
-    Takes landing container and consent container and sets visibility to
-      show landing and not consent form.
-    """
-    logger.debug("on_consent_back called")
-    updated_landing = gr.update(visible=True)
-    updated_consent = gr.update(visible=False)
-    return state, updated_landing, updated_consent
+    updated_token_box = gr.update(value="")  # clear token box
+    updated_token_error_box = gr.update(visible=False, value="")  # clear error box
+    return (
+        state,
+        updated_landing,
+        updated_consent,
+        updated_token_box,
+        updated_token_error_box,
+    )
 
 
 def on_consent_submit(
@@ -286,18 +299,14 @@ def on_token_continue(
     state: SessionState,
 ) -> Tuple[
     SessionState,
-    Dict[str, Any],  # landing container update
+    Dict[str, Any],  # gate container update
     Dict[str, Any],  # token group update
     Dict[str, Any],  # consent container update
     Dict[str, Any],  # token text update
 ]:
-    """Handle clicking the Continue button on the token display page.
-
-    Takes landing container and consent container and sets visibility to
-    show landing and not consent form.
-    """
+    """Handle clicking the Continue button on the token display page."""
     logger.debug("on_token_continue called")
-    updated_landing = gr.update(visible=True)
+    updated_gate = gr.update(visible=True)
     updated_token_group = gr.update(visible=False)
     # IMPORTANT: clear token display
     updated_token_text = gr.update(placeholder="")  # clear placeholder
@@ -306,7 +315,7 @@ def on_token_continue(
     # updated_token_error_box = gr.update(visible=False, value="")
     return (
         state,
-        updated_landing,
+        updated_gate,
         updated_token_group,
         updated_consent,
         updated_token_text,
