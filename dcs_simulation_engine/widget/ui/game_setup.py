@@ -5,7 +5,7 @@ from typing import NamedTuple, Optional
 import gradio as gr
 
 from dcs_simulation_engine.widget.constants import GAME_MD
-from dcs_simulation_engine.widget.helpers import _spacer
+from dcs_simulation_engine.widget.helpers import spacer
 
 
 class GameSetupUI(NamedTuple):
@@ -27,7 +27,7 @@ def build_game_setup(
 ) -> GameSetupUI:
     """Build ungated game page UI components."""
     with gr.Group(visible=not access_gated) as group:
-        _spacer(8)
+        spacer(8)
         gr.Markdown(GAME_MD)
 
         # pc input (centered)
@@ -45,7 +45,7 @@ def build_game_setup(
                 with gr.Column(scale=1):
                     pass
 
-        _spacer(8)
+        spacer(8)
 
         # npc input (centered)
         with gr.Group(visible=show_npc_selector):
@@ -62,7 +62,7 @@ def build_game_setup(
                 with gr.Column(scale=1):
                     pass
 
-        _spacer(8)
+        spacer(8)
 
         # centered play button
         with gr.Row():
@@ -73,7 +73,7 @@ def build_game_setup(
             with gr.Column(scale=1):
                 pass
 
-        _spacer(8)
+        spacer(8)
 
     return GameSetupUI(
         container=group,

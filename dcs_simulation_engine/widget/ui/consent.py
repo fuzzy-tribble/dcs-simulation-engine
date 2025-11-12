@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Tuple
 
 import gradio as gr
 
-from dcs_simulation_engine.widget.helpers import _spacer
+from dcs_simulation_engine.widget.helpers import spacer
 
 
 # TODO: pre-release - update consent submission to use client side encryption and store
@@ -172,14 +172,14 @@ def build_consent(access_gated: bool, consent_config: Dict[str, Any]) -> Consent
             with gr.Column():
                 pre_md = consent_config.get("preamble") or "**Consent**"
                 gr.Markdown(pre_md)
-                _spacer(8)
+                spacer(8)
 
                 fields: Dict[str, gr.Component] = {}
                 for q in consent_config.get("questions", []):
                     comp = _make_component(q)
                     fields[q.get("id") or q.get("name") or q.get("prompt", "q")] = comp
 
-                _spacer(8)
+                spacer(8)
                 with gr.Row():
                     submit_btn = gr.Button("I Agree & Continue", variant="primary")
 
@@ -196,11 +196,11 @@ def build_consent(access_gated: bool, consent_config: Dict[str, Any]) -> Consent
                     generate a new one.*
                     """
                 )
-                _spacer(8)
+                spacer(8)
                 token_text = gr.Textbox(
                     interactive=False, lines=1, show_label=False, container=False
                 )
-                _spacer(8)
+                spacer(8)
                 with gr.Row():
                     token_continue_btn = gr.Button(
                         "I have saved my token.", variant="primary"

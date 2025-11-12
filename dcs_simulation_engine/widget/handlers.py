@@ -6,16 +6,18 @@ Send → enqueue → sim.play consumes → timer polls state → new messages ap
 
 from __future__ import annotations
 
-import time
 from queue import Queue
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 
 import gradio as gr
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
 import dcs_simulation_engine.helpers.database_helpers as dbh
-from dcs_simulation_engine.core.run_manager import RunManager
+from dcs_simulation_engine.widget.helpers import (
+    create_run,
+    format,
+)
 from dcs_simulation_engine.widget.session_state import SessionState
 
 # Messages are "events" in the simulator
@@ -30,116 +32,6 @@ FRIENDLY_GR_ERROR = (
     "Yikes! We encountered an error while processing your input."
     " Its been logged and we're looking into it. Sorry about that."
 )
-
-
-def _wpm_to_cps(wpm: int) -> float:
-    """Convert words-per-minute to characters-per-second.
-
-    Assumes average word length of 5 characters.
-    """
-    return max(1.0, (wpm * 5) / 60.0)
-
-
-def _slow_yield_chars(
-    message: str,
-    wpm: int = 180,  # ~15 cps
-    min_yield_interval: float = 0.03,  # don’t spam UI; yield at most ~33 FPS
-) -> Iterator[str]:
-    cps = _wpm_to_cps(wpm)
-    per_char = 1.0 / cps
-
-    # Natural micro-pauses after punctuation
-    pauses = {
-        ".": 0.35,
-        "!": 0.35,
-        "?": 0.35,
-        ",": 0.12,
-        ";": 0.15,
-        ":": 0.15,
-        "\n": 0.22,
-        "—": 0.10,
-        "…": 0.20,
-    }
-
-    built = []
-    next_yield_at = time.perf_counter()  # throttle UI updates
-
-    for ch in message:
-        built.append(ch)
-        time.sleep(per_char)
-
-        # add extra pause after certain punctuation
-        if ch in pauses:
-            time.sleep(pauses[ch])
-
-        now = time.perf_counter()
-        if now >= next_yield_at:
-            yield "".join(built)
-            next_yield_at = now + min_yield_interval
-
-    # final flush
-    yield "".join(built)
-
-
-def _stream_msg(message: str) -> Iterator[str]:
-    """Streams a message at about reading speed."""
-    for partial in _slow_yield_chars(
-        message,
-        # wpm=random.randint(150, 220),
-    ):
-        yield partial
-
-
-def _create_run(state: SessionState, token_value: Optional[str] = None) -> RunManager:
-    """Create a new RunManager and return it."""
-    if "game_config" not in state:
-        raise ValueError("App state is missing game_config required to create run.")
-    if "player_id" not in state:
-        state["player_id"] = None
-    pc_choice = state.get("pc_choice", None)
-    npc_choice = state.get("npc_choice", None)
-    try:
-        run = RunManager.create(
-            game=state["game_config"].name,
-            source="widget",
-            pc_choice=pc_choice,
-            npc_choice=npc_choice,
-            player_id=state["player_id"],
-        )
-    except Exception as e:
-        logger.error(f"Error creating RunManager in _create_run: {e}", exc_info=True)
-        raise gr.Error(FRIENDLY_GR_ERROR)
-    return run
-
-
-def _format(msg_dict: Dict[str, Any]) -> str:
-    """Format dict style message into a markdown formatted string for gradio display."""
-    if not isinstance(msg_dict, dict):
-        logger.error(
-            f"Received non-dict message in _format: {msg_dict}. Returning str()."
-        )
-        raise gr.Error(FRIENDLY_GR_ERROR)
-    if "type" not in msg_dict or "content" not in msg_dict:
-        logger.warning(
-            f"Received malformed message in _format: {msg_dict}."
-            " Dict must include 'type' and 'content' keys."
-        )
-        raise gr.Error(FRIENDLY_GR_ERROR)
-    t = (msg_dict.get("type") or "info").lower()
-    c = msg_dict.get("content") or ""
-    if not c:
-        logger.warning("Received empty content in _format.")
-    if t == "warning":
-        return f"⚠️ {c}"
-    elif t == "error":
-        return f"❌ {c}"
-    elif t == "info":
-        return c
-    elif t == "system" or t == "assistant" or t == "ai":
-        return c
-    else:
-        logger.warning(f"Unknown message type '{t}' in _format; returning raw content.")
-        return c
 
 
 def handle_feedback(data: gr.LikeData, state: SessionState) -> None:
@@ -175,7 +67,7 @@ def setup_simulation(
     """
     try:
         logger.debug("Creating simulation run.")
-        run = _create_run(state)
+        run = create_run(state)
         state["run"] = run
         state["queue"] = Queue()  # TODO: remove if not needed
         logger.debug("Stepping simulation to get opener.")
@@ -197,7 +89,7 @@ def setup_simulation(
             logger.debug("Found events on setup.")
             for e in run.state["events"]:
                 if not isinstance(e, HumanMessage):
-                    formatted_response_partial = _format(
+                    formatted_response_partial = format(
                         {
                             "type": "ai",
                             "content": e.content,
@@ -492,7 +384,7 @@ def process_new_user_message(
     logger.debug("Generator done yielding response.")
 
 
-def validate_user_input(user_input: str) -> Optional[Dict[str, str]]:
+def validate_user_input(user_input: str) -> Any:
     """Validate user input before sending to the simulation.
 
     A function that takes in the inputs and can optionally return
@@ -500,12 +392,13 @@ def validate_user_input(user_input: str) -> Optional[Dict[str, str]]:
     """
     if not user_input.strip():
         return gr.validate(
-            False,
-            "Input cannot be empty.",
+            is_valid=False,
+            message="Input cannot be empty.",
         )
     if len(user_input) > MAX_INPUT_LENGTH:
         return gr.validate(
-            False,
-            f"Input is too long. Please limit input to {MAX_INPUT_LENGTH} characters.",
+            is_valid=False,
+            message=f"Input is too long. Max chars: {MAX_INPUT_LENGTH}",
         )
-    return None
+    else:
+        return gr.validate(is_valid=True, message="")

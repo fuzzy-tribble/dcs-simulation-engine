@@ -5,7 +5,7 @@ from typing import NamedTuple
 import gradio as gr
 
 from dcs_simulation_engine.widget.constants import GATE_MD
-from dcs_simulation_engine.widget.helpers import _spacer
+from dcs_simulation_engine.widget.helpers import spacer
 
 
 class GateUI(NamedTuple):
@@ -33,7 +33,7 @@ def build_gate(access_gated: bool) -> GateUI:
     with gr.Group(visible=access_gated) as group:
         # intro
         gr.Markdown(GATE_MD)
-        _spacer(12)
+        spacer(12)
 
         # token input (centered)
         with gr.Row():
@@ -55,7 +55,7 @@ def build_gate(access_gated: bool) -> GateUI:
             with gr.Column(scale=1):
                 pass
 
-        _spacer(8)
+        spacer(8)
 
         # primary action (centered)
         with gr.Row():
@@ -66,9 +66,9 @@ def build_gate(access_gated: bool) -> GateUI:
             with gr.Column(scale=1):
                 pass
 
-        _spacer(8)
+        spacer(8)
         gr.Markdown("<div style='text-align:center'>OR</div>")
-        _spacer(8)
+        spacer(8)
 
         # generate new token (centered)
         with gr.Row():
@@ -78,7 +78,7 @@ def build_gate(access_gated: bool) -> GateUI:
                 gen = gr.Button("Generate New Access Token", variant="secondary")
             with gr.Column(scale=1):
                 pass
-        _spacer(8)
+        spacer(8)
 
     return GateUI(
         container=group,
