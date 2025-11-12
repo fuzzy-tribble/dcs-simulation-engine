@@ -6,6 +6,8 @@ from typing import Any, Dict, List, NamedTuple, Tuple
 
 import gradio as gr
 
+from dcs_simulation_engine.widget.helpers import _spacer
+
 
 # TODO: pre-release - update consent submission to use client side encryption and store
 #  pii in write only pii collection with player id and other non-pii form info in
@@ -19,11 +21,6 @@ class ConsentUI(NamedTuple):
     token_group: gr.Group
     token_text: gr.Textbox
     token_continue_btn: gr.Button
-
-
-def _spacer(h: int = 16) -> None:
-    """Insert vertical space of height h pixels."""
-    gr.HTML(f"<div style='height:{h}px'></div>")
 
 
 # TODO: update GameConfig form to use gradio component kwargs (eg. label, placeholder, etc.)
@@ -159,6 +156,7 @@ def build_consent(access_gated: bool, consent_config: Dict[str, Any]) -> Consent
     }
     """
     if not access_gated:
+        # return empty components
         return ConsentUI(
             form_group=gr.Group(visible=False),
             fields={},

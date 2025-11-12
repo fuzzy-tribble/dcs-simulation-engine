@@ -134,12 +134,28 @@ def _format(msg_dict: Dict[str, Any]) -> str:
     elif t == "error":
         return f"❌ {c}"
     elif t == "info":
-        return f"*{c}*"
+        return c
     elif t == "system" or t == "assistant" or t == "ai":
         return c
     else:
         logger.warning(f"Unknown message type '{t}' in _format; returning raw content.")
         return c
+
+
+def handle_feedback(data: gr.LikeData, state: SessionState) -> None:
+    """Handle user feedback (like/dislike) on chat messages."""
+    if "run" not in state:
+        logger.error(
+            "handle_feedback called but no active simulation run found in state."
+        )
+        return  # don't want to crash the app over feedback
+    run = state["run"]
+    logger.warning(
+        f"🚩 Player ({run.player_id}) flagged a message as"
+        f" '{data.liked}' in run '{run.name}': {data.value}"
+    )
+    logger.debug("Flag data saved to logs/flags")
+    # TODO: consider log to db? other storage?
 
 
 def show_chat_view() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
@@ -190,9 +206,6 @@ def setup_simulation(
                     initial_history.append(
                         {"role": "assistant", "content": formatted_response_partial}
                     )
-        # initial_history = [
-        #     {"role": "assistant", "content": "changed initial msg"},
-        # ]
         updated_chatbot_value = gr.update(value=initial_history)
         return state, updated_chatbot_value
     except Exception as e:

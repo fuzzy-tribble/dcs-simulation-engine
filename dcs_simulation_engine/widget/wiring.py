@@ -3,6 +3,7 @@
 import gradio as gr
 
 from dcs_simulation_engine.widget.handlers import (
+    handle_feedback,
     on_consent_submit,
     on_gate_continue,
     on_generate_token,
@@ -26,7 +27,7 @@ def wire_handlers(
     """Wire event handlers to widget components."""
     # Note: Chat handlers are wired in ChatUI build function as args of gr.ChatInterface
 
-    # Wire play
+    # Wire game setup
     game_setup.play_btn.click(
         fn=show_chat_view,
         inputs=[],
@@ -39,6 +40,13 @@ def wire_handlers(
         fn=lambda: gr.update(visible=True),
         inputs=[],
         outputs=[chat.interface.textbox],
+    )
+
+    # Wire chat feedback
+    chat.interface.chatbot.like(
+        fn=handle_feedback,
+        inputs=[state],
+        outputs=[],
     )
 
     # Wire gate page if present

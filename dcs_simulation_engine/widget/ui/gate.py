@@ -5,6 +5,7 @@ from typing import NamedTuple
 import gradio as gr
 
 from dcs_simulation_engine.widget.constants import GATE_MD
+from dcs_simulation_engine.widget.helpers import _spacer
 
 
 class GateUI(NamedTuple):
@@ -17,14 +18,10 @@ class GateUI(NamedTuple):
     generate_token_btn: gr.Button
 
 
-def _spacer(h: int = 24) -> None:
-    """Create a vertical spacer of given height."""
-    gr.HTML(f"<div style='height:{h}px'></div>")
-
-
 def build_gate(access_gated: bool) -> GateUI:
     """Build gate UI components."""
     if not access_gated:
+        # return empty components
         return GateUI(
             container=gr.Group(visible=False),
             continue_btn=gr.Button(visible=False),

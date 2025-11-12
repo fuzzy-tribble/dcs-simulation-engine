@@ -62,8 +62,8 @@ def build_chat(state: gr.State, access_gated: bool) -> ChatUI:
             # title="Simulating",
             # description="A game with ...",
             flagging_mode="manual",  # users will see a button to flag
-            flagging_options=["Dislike", "Other"],
-            flagging_dir="flags",  # path to directory where flagged data is stored
+            flagging_options=["Doesn't make sense", "Out of character", "Other"],
+            flagging_dir="logs/flags",  # path to directory where flagged data is stored
             analytics_enabled=True,  # enable gradio analytics
             autofocus=True,  # focus on textbox on load
             autoscroll=True,  # scroll to latest message on update
