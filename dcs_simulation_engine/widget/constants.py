@@ -29,3 +29,10 @@ To continue, please enter your access token below.
 *If you need help, have questions, or encounter any issues, please email
 McKinnley Workman at mworkman9@gatech.edu*
 """
+
+USER_FRIENDLY_EXC = (
+    "Whoa...something went sideways in the simulator."
+    " Our engineers have been alerted and are investigating.\n"
+    "This session can’t continue, but we appreciate your understanding"
+    " while we sort it out."
+)

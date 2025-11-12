@@ -19,8 +19,11 @@ class SessionState(TypedDict, total=False):
     # Convenience fields (may also exist in game_config and/or run once initialized)
     access_gated: bool
     player_id: str | None
+    pc_choice: str | None
+    npc_choice: str | None
     valid_pcs: list[str]
     valid_npcs: list[str]
+    initial_history: list[dict[str, str]]
 
     queue: Queue[str]
     last_seen: int

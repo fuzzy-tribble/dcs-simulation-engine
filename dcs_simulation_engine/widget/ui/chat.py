@@ -5,8 +5,8 @@ from typing import NamedTuple
 import gradio as gr
 
 from dcs_simulation_engine.widget.handlers import (
-    process_new_user_message,
-    validate_user_input,
+    process_new_user_chat_message,
+    validate_chat_input,
 )
 
 
@@ -48,10 +48,8 @@ def build_chat(state: gr.State, access_gated: bool) -> ChatUI:
             show_copy_all_button=True,
         )
 
-        # TODO: we didn't end up using "every"...consider if we need it.
-
         chatinterface = gr.ChatInterface(
-            fn=process_new_user_message,  # takes message, history
+            fn=process_new_user_chat_message,  # takes message, history
             additional_inputs=[state],  # add state to inputs via wiring
             # additional_outputs=[state],  # add state to outputs via wiring
             multimodal=False,  # only text input
@@ -72,7 +70,7 @@ def build_chat(state: gr.State, access_gated: bool) -> ChatUI:
             show_progress="full",  # show progress while waiting for response
             fill_height=True,  # fill height of container
             fill_width=True,  # fill width of container
-            validator=validate_user_input,  # input validation function
+            validator=validate_chat_input,  # input validation function
         )
         chatinterface.textbox.placeholder = "What do you do next?"
         chatinterface.chatbot.show_label = False  # no chat label

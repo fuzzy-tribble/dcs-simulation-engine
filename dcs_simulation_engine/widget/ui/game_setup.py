@@ -1,6 +1,6 @@
 """Game setup page UI components."""
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import gradio as gr
 
@@ -12,8 +12,8 @@ class GameSetupUI(NamedTuple):
     """Game setup page UI components."""
 
     container: gr.Group
-    pc_dropdown: Optional[gr.Dropdown]
-    npc_dropdown: Optional[gr.Dropdown]
+    pc_dropdown: gr.Dropdown
+    npc_dropdown: gr.Dropdown
     play_btn: gr.Button
 
 

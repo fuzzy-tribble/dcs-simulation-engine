@@ -7,12 +7,24 @@ import gradio as gr
 from loguru import logger
 
 from dcs_simulation_engine.core.run_manager import RunManager
+from dcs_simulation_engine.widget.constants import USER_FRIENDLY_EXC
 from dcs_simulation_engine.widget.session_state import SessionState
 
-FRIENDLY_GR_ERROR = (
-    "Yikes! We encountered an error while processing your input."
-    " Its been logged and we're looking into it. Sorry about that."
-)
+
+def cleanup(state: gr.State) -> None:
+    """Clean up resources associated with a session."""
+    logger.debug("Cleaning up session resources")
+    session_state: SessionState = state.value
+    if "run" not in session_state:
+        logger.debug("No 'run' in session state to clean up")
+        return
+    try:
+        logger.debug("Exiting simulation...")
+        session_state["run"].exit(reason="session deleted")
+    except Exception:
+        logger.exception("Failed to cleanly exit simulation on delete")
+    finally:
+        logger.debug("Session cleanup complete.")
 
 
 def spacer(h: int = 24) -> None:
@@ -70,6 +82,7 @@ def slow_yield_chars(
     yield "".join(built)
 
 
+# TODO: don't know this is necessary....double yield...yucl
 def stream_msg(message: str) -> Iterator[str]:
     """Streams a message at about reading speed."""
     for partial in slow_yield_chars(
@@ -82,22 +95,25 @@ def stream_msg(message: str) -> Iterator[str]:
 def create_run(state: SessionState, token_value: Optional[str] = None) -> RunManager:
     """Create a new RunManager and return it."""
     if "game_config" not in state:
-        raise ValueError("App state is missing game_config required to create run.")
+        logger.error("App state missing game_config in _create_run.")
+        raise gr.Error(USER_FRIENDLY_EXC)
     if "player_id" not in state:
         state["player_id"] = None
-    pc_choice = state.get("pc_choice", None)
-    npc_choice = state.get("npc_choice", None)
+    if "pc_choice" not in state:
+        state["pc_choice"] = None
+    if "npc_choice" not in state:
+        state["npc_choice"] = None
     try:
         run = RunManager.create(
             game=state["game_config"].name,
             source="widget",
-            pc_choice=pc_choice,
-            npc_choice=npc_choice,
+            pc_choice=state["pc_choice"],
+            npc_choice=state["npc_choice"],
             player_id=state["player_id"],
         )
     except Exception as e:
         logger.error(f"Error creating RunManager in _create_run: {e}", exc_info=True)
-        raise gr.Error(FRIENDLY_GR_ERROR)
+        raise gr.Error(USER_FRIENDLY_EXC)
     return run
 
 
@@ -107,21 +123,21 @@ def format(msg_dict: Dict[str, Any]) -> str:
         logger.error(
             f"Received non-dict message in _format: {msg_dict}. Returning str()."
         )
-        raise gr.Error(FRIENDLY_GR_ERROR)
+        raise gr.Error(USER_FRIENDLY_EXC)
     if "type" not in msg_dict or "content" not in msg_dict:
         logger.warning(
             f"Received malformed message in _format: {msg_dict}."
             " Dict must include 'type' and 'content' keys."
         )
-        raise gr.Error(FRIENDLY_GR_ERROR)
+        raise gr.Error(USER_FRIENDLY_EXC)
     t = (msg_dict.get("type") or "info").lower()
     c = msg_dict.get("content") or ""
     if not c:
         logger.warning("Received empty content in _format.")
     if t == "warning":
-        return f"⚠️ {c}"
+        return f"# ⚠️ Warning\n{c}"
     elif t == "error":
-        return f"❌ {c}"
+        return f"# ❌ Error\n{c}"
     elif t == "info":
         return c
     elif t == "system" or t == "assistant" or t == "ai":
