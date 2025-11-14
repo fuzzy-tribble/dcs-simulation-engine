@@ -56,6 +56,7 @@ def parse_args() -> argparse.Namespace:
         default="explore",
         help="Name of the game to launch (default: explore).",
     )
+    # TODO: add version arg use "latest" by default
     parser.add_argument(
         "-v",
         "--verbose",
