@@ -1,4 +1,11 @@
-"""Initializes a new MongoDB database from seed files."""
+"""Initializes a new MongoDB database from seed files.
+
+IMPORTANT NOTE: This does NOT setup roles!
+To properly proctect PII collection the user should
+have a role with only WRITE access to this collection.
+Do this in the MongoDB Atlas UI or via the MongoDB shell.
+
+"""
 
 from __future__ import annotations
 
@@ -195,9 +202,6 @@ def seed_database(db: Database, seed_files: Iterable[Path]) -> None:
         inserted = seed_collection(db[collection_name], docs)
         logging.info("Inserted %d document(s) into '%s'", inserted, collection_name)
         create_indices(db[collection_name])
-
-
-# --- Entrypoint --------------------------------------------------------------------
 
 
 def main() -> None:

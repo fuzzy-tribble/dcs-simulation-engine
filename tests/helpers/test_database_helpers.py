@@ -48,7 +48,6 @@ def test_create_player() -> None:
     db = dbh.get_db()
     doc = db[dbh.PLAYERS_COL].find_one({"_id": ObjectId(created_id)})
     assert doc is not None
-    assert doc["email"] == "alice@example.com"
     assert doc.get("access_key_hash") == dbh._hash_key(raw_key)
     assert doc.get("access_key_revoked") is False
     assert dbh.DEFAULT_CREATEDAT_FIELD in doc
