@@ -1,17 +1,16 @@
 """Constants for the widget package."""
 
-UNGATED_MD = """
+GAME_MD = """
 ## Welcome
 
-Thank you for your interest in the simulation engine. This is an open-access
-game.
+Thank you for your interest in the simulation engine.
 
 ### Instructions
 
-To continue, simply click the "Play" button below.
+Click "Play" when you're ready to begin.
 """
 
-GATED_MD = """
+GATE_MD = """
 ## Welcome
 
 You've been given this access link to play a game as part of your participation
@@ -30,3 +29,10 @@ To continue, please enter your access token below.
 *If you need help, have questions, or encounter any issues, please email
 McKinnley Workman at mworkman9@gatech.edu*
 """
+
+USER_FRIENDLY_EXC = (
+    "Whoa...something went sideways."
+    " Our engineers have been alerted and are investigating.\n"
+    "This session can’t continue, but we appreciate your understanding"
+    " while we sort it out."
+)

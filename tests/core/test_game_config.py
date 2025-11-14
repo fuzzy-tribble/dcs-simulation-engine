@@ -11,7 +11,7 @@ from dcs_simulation_engine.core.game_config import GameConfig
 from dcs_simulation_engine.helpers import database_helpers as dbh
 from tests.helpers import patch_yml
 
-# TODO: test the following character selectors
+# TODO: update these tests to run the test the following character selectors instead of the ones they are currently using. Continue to use patch to modify the minimal config for each test.
 # - any pc/npc
 # - specific hid
 # - descriptors/abilities regex (e.g. human-like-cognition, human-like-form, animal, service-animal, etc.)
@@ -31,6 +31,40 @@ def test_load_minimal_game_config(
     """Should load a minimal valid GameConfig from YAML."""
     cfg = GameConfig.from_yaml(game_config_minimal.path)
     assert cfg.name == "Minimal Test Game Config"
+
+
+@pytest.mark.unit
+def test_regex_and_ne(
+    game_config_minimal: SimpleNamespace,
+) -> None:
+    """Should load human-like chars."""
+    # Patch minimal config to include simple valid character selectors
+    patch = """
+    character_settings:
+      pc:
+        valid:
+          characters: 
+            where:
+              common_descriptors:
+                "$regex": "human-?like"
+                "$options": "i"
+      npc:
+        valid:
+          characters:
+            where:
+              hid:
+                "$ne": "human-normative"
+    """
+    patched_yml = patch_yml(game_config_minimal.path, patch)
+    logger.debug(f"Patched YAML path: {patched_yml.path}")
+    logger.debug(f"Patched YAML content:\n{patched_yml.data}")
+    cfg = GameConfig.from_yaml(patched_yml.path)
+    assert cfg.name == "Minimal Test Game Config"
+
+    # make sure human-normative is included in valid PCs
+    valid_pcs, _ = cfg.get_valid_characters()
+    logger.debug(f"Valid PCs: {valid_pcs}")
+    assert "human-normative" in valid_pcs
 
 
 @pytest.mark.unit

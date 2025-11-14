@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from loguru import logger
 from pydantic import (
@@ -78,7 +78,51 @@ class AccessSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     user: ValiditySelector
-    consent_form: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    new_player_form: Optional[Form] = Field(default=None)
+
+
+class Form(BaseModel):
+    """Defines a form structure."""
+
+    model_config = ConfigDict(extra="forbid")
+    preamble: Optional[str] = None
+    questions: List[FormQuestion] = Field(default_factory=list)
+
+
+class FormQuestion(BaseModel):
+    """Defines a form structure."""
+
+    model_config = ConfigDict(extra="forbid")
+    key: str
+    type: Literal[
+        "text",
+        "textarea",
+        "boolean",
+        "email",
+        "phone",
+        "number",
+        "select",
+        "multiselect",
+        "radio",
+        "checkboxes",
+    ]
+    placeholder: Optional[str] = None
+    info: Optional[str] = None
+    label: Optional[str] = None
+    required: bool = False
+    pii: bool = False
+    options: Optional[List[str]] = None  # for select, multiselect, radio,
+
+    # validate that key has no spaces and is lowercase with underscores
+    @field_validator("key")
+    @classmethod
+    def key_format(cls, v: str) -> str:
+        """Validate key format."""
+        if " " in v:
+            raise ValueError("Key must not contain spaces.")
+        if not all(c.islower() or c == "_" for c in v):
+            raise ValueError("Key must be lowercase letters and underscores only.")
+        return v
 
 
 class CharacterSettings(BaseModel):

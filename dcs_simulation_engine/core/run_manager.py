@@ -31,6 +31,14 @@ from dcs_simulation_engine.utils.file import safe_timestamp, unique_fpath
 # TODO: pre-release - what prevents user from inputting two things
 # really fast and flooding the system??
 
+# TODO: pre-release - add step(long_running and timeout and interrupt) support
+# to exit step (also consider yield results as generator??
+
+# TODO: if character choices has no qa, warn (playing with characters whose
+# represetnational quality has not been assessed by the DCS research group...
+# do you wish to submit these characters for assessment so they can be added
+# to core characters db (link to open a ticket))
+
 
 class RunManager(BaseModel):
     """Initialize the run."""
@@ -308,6 +316,9 @@ class RunManager(BaseModel):
         Returns the updated state (dict).
         """
         # logger.debug(f"RunManager step called with user_input: {user_input!r}")
+
+        if self.start_ts is None:
+            self.start_ts = datetime.now()
 
         self._ensure_stopping_conditions()  # sets self.stopped if needed
 

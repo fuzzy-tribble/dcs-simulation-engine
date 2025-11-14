@@ -1,28 +1,11 @@
-"""Simplified MongoDB seeder.
+"""Initializes a new MongoDB database from seed files.
 
-This script seeds a MongoDB database from JSON (or NDJSON) files located in
-`database_seeds/`. The collection name is the seed filename (without extension),
-e.g. `database_seeds/characters.json` -> collection `characters`.
+IMPORTANT NOTE: This does NOT setup roles!
+To properly proctect PII collection the user should
+have a role with only WRITE access to this collection.
+Do this in the MongoDB Atlas UI or via the MongoDB shell.
 
-No CLI, no switches — just run it. Minimal, readable, and type‑annotated.
-
-Defaults
---------
-- Database name: ``mydatabase`` (override with ``DB_NAME`` env var)
-- Mongo URI: from ``MONGO_URI`` env var (``.env`` is auto‑loaded if available)
-- Seeds dir: ``database_seeds/`` (all ``*.json`` and ``*.ndjson`` files)
-- Behavior: drops each target collection, then inserts documents from the file
-
-Example:
--------
-$ poetry run python setup_new_database.py
 """
-
-# TODO: pre-release - update db init script to create write only
-# access on pii collection and read/write on others.
-
-# TODO: pre-release - make a demo role that has no write access on any collection
-# (just uses char sheets) and use that role for demo launches.
 
 from __future__ import annotations
 
@@ -45,7 +28,6 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-# --- Configuration -----------------------------------------------------------------
 DEFAULT_DB_NAME: str = "dcs-db"
 SEEDS_DIR: Path = Path("database_seeds")
 SUPPORTED_EXTS = {".json", ".ndjson"}
@@ -58,9 +40,6 @@ INDEX_DEFS: dict[str, list[dict[str, Any]]] = {
     #     {"fields": [("last_login", -1)], "unique": False},
     # ],
 }
-
-
-# --- IO helpers --------------------------------------------------------------------
 
 
 def backup_root_dir(db_name: str) -> Path:
@@ -223,9 +202,6 @@ def seed_database(db: Database, seed_files: Iterable[Path]) -> None:
         inserted = seed_collection(db[collection_name], docs)
         logging.info("Inserted %d document(s) into '%s'", inserted, collection_name)
         create_indices(db[collection_name])
-
-
-# --- Entrypoint --------------------------------------------------------------------
 
 
 def main() -> None:

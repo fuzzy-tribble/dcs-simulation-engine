@@ -31,6 +31,8 @@ character_settings:
     valid:
       characters: { "where": { "common_descriptors": { "$regex": "human-?like-cognition", "$options": "i" } } }
       # characters: { 'where': { hid: 'human-normative' } } # allow only normative human PC
+      # TODO: consier adding allow_player_selection
+      # display_choice: "{hid} - {short_description}" # allow player to choose their PC from valid characters
   npc:
     valid:
       characters: {} # allow any NPC character
