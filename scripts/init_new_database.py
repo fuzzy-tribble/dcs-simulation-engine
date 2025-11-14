@@ -21,7 +21,6 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-# --- Configuration -----------------------------------------------------------------
 DEFAULT_DB_NAME: str = "dcs-db"
 SEEDS_DIR: Path = Path("database_seeds")
 SUPPORTED_EXTS = {".json", ".ndjson"}
@@ -34,9 +33,6 @@ INDEX_DEFS: dict[str, list[dict[str, Any]]] = {
     #     {"fields": [("last_login", -1)], "unique": False},
     # ],
 }
-
-
-# --- IO helpers --------------------------------------------------------------------
 
 
 def backup_root_dir(db_name: str) -> Path:
