@@ -1,7 +1,7 @@
 """Helper functions for widget."""
 
 import time
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import gradio as gr
 from loguru import logger
@@ -145,3 +145,118 @@ def format(msg_dict: Dict[str, Any]) -> str:
     else:
         logger.warning(f"Unknown message type '{t}' in _format; returning raw content.")
         return c
+
+
+COMPONENTS = {
+    "text": lambda q: gr.Textbox(
+        label=q.get("label", ""),
+        placeholder=q.get("placeholder", ""),
+        lines=1,
+        show_label=bool(q.get("label")),
+        info=q.get("info", ""),
+    ),
+    "textarea": lambda q: gr.Textbox(
+        label=q.get("label", ""),
+        placeholder=q.get("placeholder", ""),
+        lines=4,
+        show_label=bool(q.get("label")),
+        info=q.get("info", ""),
+    ),
+    "bool": lambda q: gr.Checkbox(label=q.get("label", "")),
+    "email": lambda q: gr.Textbox(
+        label=q.get("label", ""),
+        placeholder=q.get("placeholder") or "name@example.com",
+        lines=1,
+        show_label=bool(q.get("label")),
+        info=q.get("info", ""),
+    ),
+    "phone": lambda q: gr.Textbox(
+        label=q.get("label", ""),
+        placeholder=q.get("placeholder") or "+1 555 123 4567",
+        lines=1,
+        show_label=bool(q.get("label")),
+        info=q.get("info", ""),
+    ),
+    "number": lambda q: gr.Number(label=q.get("label", ""), info=q.get("info", "")),
+    "select": lambda q: gr.Dropdown(
+        label=q.get("label", ""),
+        choices=q.get("options", []),
+        multiselect=False,
+        info=q.get("info", ""),
+    ),
+    "multiselect": lambda q: gr.Dropdown(
+        label=q.get("label", ""),
+        choices=q.get("options", []),
+        multiselect=True,
+        info=q.get("info", ""),
+    ),
+    "radio": lambda q: gr.Radio(
+        label=q.get("label", ""), choices=q.get("options", []), info=q.get("info", "")
+    ),
+    "checkboxes": lambda q: gr.CheckboxGroup(
+        label=q.get("label", ""),
+        show_label=bool(q.get("label")),
+        choices=q.get("options", []),
+        info=q.get("info", ""),
+    ),
+}
+
+
+def make_component(question: Dict[str, Any]) -> gr.Component:
+    """Create a Gradio component for a consent question spec."""
+    t = (question.get("type") or "text").lower()
+    factory = COMPONENTS.get(t, COMPONENTS["text"])
+    return factory(question)  # type: ignore
+
+
+def validate_email(val: str) -> bool:
+    """Check if the email is valid."""
+    if not val:
+        return True  # handled by required
+    return "@" in val and "." in val.split("@")[-1]
+
+
+def validate_phone(val: str) -> bool:
+    """Check if the phone number is valid (at least 10 digits)."""
+    if not val:
+        return True
+    digits = [c for c in val if c.isdigit()]
+    return len(digits) >= 10
+
+
+def collect_form_answers(
+    spec: Dict[str, Any], values: Any
+) -> Tuple[bool, str, Dict[str, Any]]:
+    """Collect and validate consent form answers.
+
+    Returns (ok, message, answers_dict). If not ok, message is an error string.
+    Expected order of *values matches build_consent(...).fields ordering.
+    """
+    logger.debug(f"collect_form_answers called with values: {values}")
+    questions: List[Dict[str, Any]] = spec.get("questions", [])
+    answers = {}
+    errors = []
+
+    for q, v in zip(questions, values):
+        logger.debug(f"Processing question {q} with value '{v}'")
+        qid = q.get("key", "")
+        required = bool(q.get("required", False))
+        atype = (q.get("type") or "text").lower()
+
+        label = q.get("label")
+        human_readable_label = label or qid.replace("_", " ").capitalize()
+
+        if required and (v is None or v == "" or (isinstance(v, list) and not v)):
+            errors.append(f"- {human_readable_label} is required.")
+        if atype == "email" and not validate_email(v):
+            errors.append(f"- {human_readable_label}" " must be a valid email.")
+        if atype == "phone" and not validate_phone(v):
+            errors.append(
+                f"- {human_readable_label}" " must be a valid 10+ digit phone number."
+            )
+        answers[qid] = v
+
+    if errors:
+        return False, "<br>".join(errors), {}
+
+    return True, "✅ Thanks! Consent recorded.", answers

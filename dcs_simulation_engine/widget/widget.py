@@ -1,10 +1,8 @@
-"""Gradio app construction for the simulation engine.
-
-Adds a centered title and an Instructions panel derived from the loaded
-simulation's characters (A/B) and graph, similar to the CLI UI.
-"""
+"""Gradio widget construction."""
 
 from __future__ import annotations
+
+from typing import Any, Dict
 
 import gradio as gr
 from loguru import logger
@@ -14,7 +12,7 @@ from dcs_simulation_engine.helpers.game_helpers import get_game_config
 from dcs_simulation_engine.widget.helpers import cleanup
 from dcs_simulation_engine.widget.session_state import SessionState
 from dcs_simulation_engine.widget.ui.chat import build_chat
-from dcs_simulation_engine.widget.ui.consent import build_consent
+from dcs_simulation_engine.widget.ui.form import build_form
 from dcs_simulation_engine.widget.ui.game_setup import build_game_setup
 from dcs_simulation_engine.widget.ui.gate import build_gate
 from dcs_simulation_engine.widget.ui.header import build_header
@@ -51,9 +49,9 @@ def build_widget(
                 raise ValueError(
                     "Game config requires access gating but has no access settings"
                 )
-            if game_config.access_settings.consent_form is None:
+            if game_config.access_settings.new_player_form is None:
                 raise ValueError(
-                    "Game config requires access gating but no consent form provided"
+                    "Game config requires access gating but no new player form provided"
                 )
         else:
             logger.debug("No access gating required. Prepopulating valid characters.")
@@ -73,8 +71,7 @@ def build_widget(
 
     widget = gr.Blocks(
         title="DCS Simulation Engine",
-        theme=gr.themes.Default(primary_hue="blue"),
-        css=".frozen { opacity: 0.5; pointer-events: none; }",
+        theme=gr.themes.Default(primary_hue="violet"),
     )
     with widget:
         state = gr.State(
@@ -92,6 +89,28 @@ def build_widget(
             time_to_live=MAX_TTL_SECONDS,
             delete_callback=cleanup,  # function to call when state is deleted
         )
+        # add custom css look to freeze on system error
+        gr.HTML(
+            """
+            <style>
+            /* Overlay for errors */
+            .frozen::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: rgba(255, 255, 255, 0.3); /* adjust fog: 0.5–0.8 works well */
+                backdrop-filter: blur(2px);           /* glassy look */
+                pointer-events: all;
+            }
+
+            /* Block interaction with children */
+            .frozen > * {
+                pointer-events: none;
+            }
+            </style>
+        """
+        )
+
         build_header(game_config, banner)
         # Build game setup page based on config
         game_setup = build_game_setup(
@@ -107,11 +126,15 @@ def build_widget(
 
         # Build gates if needed
         gate = build_gate(access_gated)
-        consent_form = game_config.access_settings.consent_form if access_gated else {}
-        consent = build_consent(access_gated, consent_form)
+        form_config: Dict[str, Any]
+        if access_gated and game_config.access_settings.new_player_form is not None:
+            form_config = game_config.access_settings.new_player_form.model_dump()
+        else:
+            form_config = {}
+        form = build_form(access_gated, form_config)
 
         # Wire up event handlers
-        wire_handlers(state, gate, consent, game_setup, chat)
+        wire_handlers(state, gate, form, game_setup, chat)
 
         ### CLEAN UP ON DISCONNECT ###
 

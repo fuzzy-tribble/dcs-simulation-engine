@@ -33,9 +33,27 @@ load_dotenv()
 # Collections / fields
 PLAYERS_COL = "players"
 RUNS_COL = "runs"
+PII_COL = "pii"
 # Mongo doesn't handle created_at or updated_at automatically.
 DEFAULT_CREATEDAT_FIELD = "created_at"
 DEFAULT_UPDATEDAT_FIELD = "updated_at"
+DEFAULT_PII_KEYS = {
+    "full_name",
+    "name",
+    "first_name",
+    "last_name",
+    "email",
+    "phone",
+    "phone_number",
+}
+PII_META_KEYS = {
+    "access_key",
+    "access_key_hash",
+    "access_key_prefix",
+    "access_key_revoked",
+    "created_at",
+    "last_key_issued_at",
+}
 
 _DELTA_DAYS_RE = re.compile(r"__delta_days(-?\d+)__\Z")
 
@@ -242,17 +260,16 @@ def get_player_id_from_access_key(access_key: str) -> Optional[str]:
         return None
 
 
-def create_player(
-    player_data: Dict[str, Any],
-    *,
-    player_id: Optional[Union[str, Any]] = None,
-    issue_access_key: bool = False,
-) -> Tuple[str, Optional[str]]:
-    """Insert or upsert a player."""
-    if not isinstance(player_data, dict):
-        raise ValueError("player_data must be a dict")
+def _sanitize_player_data(player_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Prepare player data for the main players collection.
 
+    Steps:
+    - Clone the dict (so we don't mutate caller data)
+    - Strip access-key-like fields
+    - Ensure created-at timestamp is present
+    """
     data = dict(player_data)
+
     for k in (
         "access_key",
         "access_key_hash",
@@ -260,14 +277,111 @@ def create_player(
         "access_key_revoked",
     ):
         data.pop(k, None)
-    data.setdefault(DEFAULT_CREATEDAT_FIELD, now())
 
+    data.setdefault(DEFAULT_CREATEDAT_FIELD, now())
+    return data
+
+
+def _split_pii(player_data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Split 'player_data' into two dicts:
+        - non_pii_data: safe to store in the main player collection
+        - pii_fields:   answers only, stored in the PII collection
+
+    Behavior:
+    - If a field is plain (email="x") and is PII → omit from non_pii_data.
+    - If a field is schema-style and marked pii:true OR in DEFAULT_PII_KEYS:
+         → keep the field shell in non_pii_data but strip its answer
+         → store only the answer in pii_fields.
+    - Non-PII fields pass through untouched.
+    """
+    non_pii: Dict[str, Any] = {}
+    pii: Dict[str, Any] = {}
+
+    for key, value in player_data.items():
+        if key in PII_META_KEYS or key == DEFAULT_CREATEDAT_FIELD:
+            non_pii[key] = value
+            continue
+
+        # Schema-style
+        if isinstance(value, dict):
+            field_key = value.get("key", key)
+            answer = value.get("answer")
+
+            is_pii = (
+                bool(value.get("pii"))
+                or field_key in DEFAULT_PII_KEYS
+                or key in DEFAULT_PII_KEYS
+            )
+
+            if not is_pii:
+                # Not PII → pass through unchanged
+                non_pii[key] = value
+            else:
+                # PII → keep structure but remove answer
+                v_clean = dict(value)
+                v_clean.pop("answer", None)
+                non_pii[key] = v_clean
+
+                # Only store non-empty answers
+                if answer not in (None, "", [], {}):
+                    pii[field_key] = answer
+
+        else:
+            # Plain value
+            if key in DEFAULT_PII_KEYS:
+                # Completely omit from non_pii, store only in PII
+                if value not in (None, "", [], {}):
+                    pii[key] = value
+            else:
+                non_pii[key] = value
+
+    return non_pii, pii
+
+
+def _write_pii_fields(player_id: str, pii_fields: Dict[str, Any]) -> None:
+    """Upsert PII into a separate collection.
+
+    Keyed by player_id.
+    Failure here should never prevent player creation.
+    """
+    if not pii_fields:
+        return
+
+    pii_coll: Collection = get_db()[PII_COL]
+    pii_coll.update_one(
+        {"player_id": player_id},
+        {
+            "$set": {
+                "player_id": player_id,
+                "fields": pii_fields,
+                "updated_at": now(),
+            },
+            "$setOnInsert": {"created_at": now()},
+        },
+        upsert=True,
+    )
+
+
+def create_player(
+    player_data: Dict[str, Any],
+    *,
+    player_id: Optional[Union[str, Any]] = None,
+    issue_access_key: bool = False,
+) -> Tuple[str, Optional[str]]:
+    """Insert or upsert a player and persist any PII in a separate collection."""
+    if not isinstance(player_data, dict):
+        raise ValueError("player_data must be a dict")
+
+    # 1) Sanitize access-key-related fields & created_at
+    sanitized = _sanitize_player_data(player_data)
+
+    # 2) Add access key data if needed
     raw_key: Optional[str] = None
     if issue_access_key:
         raw_key, prefix_fragment, digest = _new_access_key_bip39(
             words=12, language="english"
         )
-        data.update(
+        sanitized.update(
             {
                 "access_key_hash": digest,
                 "access_key_prefix": prefix_fragment,
@@ -276,15 +390,26 @@ def create_player(
             }
         )
 
+    # 3) Split sanitized fields into: (non_pii, pii)
+    non_pii_data, pii_fields = _split_pii(sanitized)
+
+    # 4) Upsert the main non-PII record
     coll: Collection = get_db()[PLAYERS_COL]
     if player_id is not None:
-        coll.update_one({"_id": player_id}, {"$set": data}, upsert=True)
+        coll.update_one({"_id": player_id}, {"$set": non_pii_data}, upsert=True)
         created_id = str(player_id)
     else:
-        created_id = str(coll.insert_one(data).inserted_id)
+        created_id = str(coll.insert_one(non_pii_data).inserted_id)
 
-    logger.info(f"Created/updated player: {created_id} (issued_key={bool(raw_key)})")
-    return str(created_id), raw_key
+    # 5) Persist PII separately
+    try:
+        if pii_fields:
+            _write_pii_fields(created_id, pii_fields)
+    except Exception:
+        logger.exception("Failed to write PII fields for player %s", created_id)
+
+    logger.info("Created/updated player: %s (issued_key=%s)", created_id, bool(raw_key))
+    return created_id, raw_key
 
 
 def save_run_data(

@@ -14,7 +14,12 @@ from loguru import logger
 
 import dcs_simulation_engine.helpers.database_helpers as dbh
 from dcs_simulation_engine.widget.constants import USER_FRIENDLY_EXC
-from dcs_simulation_engine.widget.helpers import create_run, format, stream_msg
+from dcs_simulation_engine.widget.helpers import (
+    collect_form_answers,
+    create_run,
+    format,
+    stream_msg,
+)
 from dcs_simulation_engine.widget.session_state import SessionState
 
 # Tunables
@@ -209,26 +214,49 @@ def on_gate_continue(state: SessionState, token_value: str) -> Tuple[
     )
 
 
-def on_consent_submit(
-    state: SessionState, field_names: List[str], *field_values: List[Any]
+def on_form_submit(
+    state: SessionState, *field_values: Any
 ) -> Tuple[
     SessionState, Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]
 ]:
-    """Handle clicking the I Agree & Continue button on the consent page.
+    """Handle clicking submit on the consent form.
 
     - creates player with consent data, issues access token
     - takes landing container and consent container and sets visibility to show
     landing and not consent form.
     """
-    # TODO: validate consent fields and if not valid return error message text below
-    user_data = {
-        "consent_signed": True,
-        "consent_form_data": dict(zip(field_names, field_values)),
-    }
+    logger.debug(f"on_form_submit called with {len(field_values)} form values.")
+
+    if "game_config" not in state:
+        logger.error("App state missing game_config in on_form_submit.")
+        raise gr.Error(USER_FRIENDLY_EXC)
+    form_config = state["game_config"].access_settings.new_player_form
+    if not form_config:
+        logger.error("No form_config found in state during on_form_submit.")
+        raise gr.Error(USER_FRIENDLY_EXC)
+
+    form_config_dict = form_config.model_dump()
+    ok, message, answers_dict = collect_form_answers(form_config_dict, field_values)
+    logger.debug(f"Form validation result: ok={ok}, message={message}")
+    if not ok:
+        logger.debug("Form validation failed.")
+        gr.Warning(message, duration=None, title="Form Validation Error")
+        return (  # unchanged state, show form with error
+            state,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
+
     # create player with consent data, issue access token
     try:
+        new_player_data: Dict[str, Dict[str, Any]] = {
+            q.key: {**q.model_dump(), "answer": value}
+            for q, value in zip(form_config.questions, field_values)
+        }
         player_id, access_key = dbh.create_player(
-            player_data=user_data, issue_access_key=True
+            player_data=new_player_data, issue_access_key=True
         )
         logger.debug(f"Created player {player_id} with access key.")
         updated_form_group = gr.update(visible=False)

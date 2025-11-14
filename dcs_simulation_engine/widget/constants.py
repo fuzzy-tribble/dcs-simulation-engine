@@ -31,7 +31,7 @@ McKinnley Workman at mworkman9@gatech.edu*
 """
 
 USER_FRIENDLY_EXC = (
-    "Whoa...something went sideways in the simulator."
+    "Whoa...something went sideways."
     " Our engineers have been alerted and are investigating.\n"
     "This session can’t continue, but we appreciate your understanding"
     " while we sort it out."
