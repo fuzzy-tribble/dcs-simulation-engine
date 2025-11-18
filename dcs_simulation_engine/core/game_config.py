@@ -1,5 +1,8 @@
 """Base game config module."""
 
+# TODO: part of config that queries db using raw dict-like queries is
+# janky and should be replaced with something more robust.
+
 from __future__ import annotations
 
 from typing import Annotated, Any, Dict, List, Literal, Optional
@@ -293,6 +296,11 @@ class GameConfig(SerdeMixin, BaseModel):
         sel = self.access_settings.user
         valid_map = getattr(sel, "valid", {}) or {}
         invalid_map = getattr(sel, "invalid", {}) or {}
+
+        logger.debug(
+            f"is_player_allowed called with valid_map={valid_map},"
+            f" invalid_map={invalid_map}"
+        )
 
         # If both sides are empty → no restriction → allow anyone.
         if not valid_map and not invalid_map:

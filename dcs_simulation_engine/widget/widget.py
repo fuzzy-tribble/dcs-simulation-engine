@@ -56,7 +56,7 @@ def build_widget(
             valid_pcs, valid_npcs = game_config.get_valid_characters(
                 return_formatted=True
             )
-            logger.debug(
+            logger.info(
                 f"Found {len(valid_pcs)} valid PCs and {len(valid_npcs)} valid NPCs."
             )
             if not valid_pcs:
@@ -78,6 +78,8 @@ def build_widget(
             value=SessionState(
                 access_gated=access_gated,
                 game_config=game_config,
+                # if access gates, valid chars may depend on the user so we
+                # will populate after gate gets player_id
                 valid_pcs=valid_pcs if not access_gated else [],
                 valid_npcs=valid_npcs if not access_gated else [],
                 player_id=None,

@@ -581,6 +581,10 @@ def user_matches_where(
       - runs:    require player_id; AND with {"player_id": ObjectId(player_id)}
       - characters: no implicit player filter
     """
+    logger.debug(
+        "Checking user_matches_where for "
+        f"player_id={player_id}, collection={collection}, query={query}"
+    )
     if not isinstance(query, Mapping):
         raise TypeError("query must be a mapping")
 
@@ -606,6 +610,7 @@ def user_matches_where(
     # characters: no automatic player filter
 
     try:
+        logger.debug(f"Final user_matches_where query where={where}")
         doc = coll.find_one(where, projection={"_id": 1})
         return bool(doc)
     except Exception as e:
