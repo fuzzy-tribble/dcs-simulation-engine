@@ -44,6 +44,9 @@ from dcs_simulation_engine.utils.file import safe_timestamp, unique_fpath
 # do you wish to submit these characters for assessment so they can be added
 # to core characters db (link to open a ticket))
 
+# TODO: add flags to run manager so that they are auto db saved with the run
+# that wrote them
+
 
 class RunManager(BaseModel):
     """Initialize the run."""
