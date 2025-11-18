@@ -13,6 +13,38 @@ from typing_extensions import (
 )
 
 
+def display_state_snapshot(state: dict[str, Any], preview_chars: int = 80) -> None:
+    """Build a full state snapshot string and log it in one call."""
+    parts: list[str] = []
+    parts.append("State snapshot:")
+
+    # Non-history keys
+    for k, v in state.items():
+        if k != "history":
+            parts.append(f"{k}: {v}")
+
+    # History length
+    history = state.get("history", [])
+    hist_len = len(history) if history else 0
+    parts.append(f"history length: {hist_len}")
+
+    # Preview last entry
+    if hist_len > 0:
+        last = history[-1]
+
+        if isinstance(last, BaseMessage):
+            content = last.content
+        else:
+            content = getattr(last, "content", None)
+
+        if content:
+            preview = content[:preview_chars].replace("\n", " ")
+            parts.append(f"history[-1] preview ({preview_chars} chars): {preview}")
+
+    # Log as a single message
+    logger.debug("\n".join(parts))
+
+
 def make_state(overrides: dict[str, Any] | None = None) -> SimulationGraphState:
     """Create a SimulationGraphState with sensible defaults and optional overrides."""
     overrides = dict(overrides or {})
@@ -27,12 +59,11 @@ def make_state(overrides: dict[str, Any] | None = None) -> SimulationGraphState:
         "lifecycle": "INIT",
         "exit_reason": "",
         "history": [],
-        "user_input": "",
-        "user_validation_message": None,
-        "response_message": None,
-        "final_message": None,
-        "retries": {"user": 0, "ai": 0},
-        "retry_limits": {"user": 3, "ai": 3},
+        "user_input": None,
+        "validator_response": None,
+        "updater_response": None,
+        "simulator_output": None,
+        "user_retry_budget": 6,
         "forms": None,
     }
 
@@ -60,15 +91,8 @@ def make_state(overrides: dict[str, Any] | None = None) -> SimulationGraphState:
     try:
         return cast(SimulationGraphState, StateAdapter.validate_python(state))
     except ValidationError as e:
-        logger.error("Invalid SimulationState: %s", e)
+        logger.error("Invalid SimulationGraphState: %s", e)
         raise
-
-
-class SpecialUserMessage(TypedDict):
-    """Special user message structure."""
-
-    type: Literal["info", "warning", "error"]
-    content: str
 
 
 class Form(TypedDict):
@@ -85,7 +109,7 @@ class FormQuestion(TypedDict):
     answer: str
 
 
-MessageType = Literal["info", "error", "ai", "user"]
+MessageType = Literal["info", "error", "command", "warning", "ai", "user"]
 
 
 class SimulationMessage(TypedDict):
@@ -93,18 +117,6 @@ class SimulationMessage(TypedDict):
 
     type: MessageType
     content: str
-
-
-class Retries(TypedDict):
-    """Retry limits for players.
-
-    Note: using user and ai makes it easier to use
-    built-in openrouter and langgraph message functionalities
-
-    """
-
-    user: int  # player (pc)
-    ai: int  # simulator (npc)
 
 
 class SimulationGraphState(TypedDict, total=True):
@@ -121,16 +133,16 @@ class SimulationGraphState(TypedDict, total=True):
     # Lifecycle management
     lifecycle: Literal["INIT", "ENTER", "UPDATE", "EXIT", "COMPLETE"]
     exit_reason: str
-    retries: Retries
-    retry_limits: Retries
+    user_retry_budget: int
 
     # Message management
     history: Annotated[list[BaseMessage], add_messages]
-    user_input: str
+    user_input: Optional[SimulationMessage]
+    simulator_output: Optional[SimulationMessage]
 
-    user_validation_message: Optional[SimulationMessage]
-    response_message: Optional[SimulationMessage]
-    final_message: Optional[SimulationMessage]
+    # Intermediate processing messages from subgraph
+    validator_response: Optional[SimulationMessage]
+    updater_response: Optional[SimulationMessage]
 
     # Data collection management
     forms: Optional[dict[str, Form]]

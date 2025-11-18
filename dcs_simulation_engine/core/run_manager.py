@@ -6,7 +6,7 @@ import json
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Union
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
@@ -20,7 +20,12 @@ from dcs_simulation_engine.core.simulation_graph import (
     SimulationGraphState,
     make_state,
 )
+from dcs_simulation_engine.core.simulation_graph.constants import (
+    UPDATER_NAME,
+    VALIDATOR_NAME,
+)
 from dcs_simulation_engine.core.simulation_graph.context import ContextSchema
+from dcs_simulation_engine.core.simulation_graph.subgraph import init_subgraph_context
 from dcs_simulation_engine.helpers import database_helpers as dbh
 from dcs_simulation_engine.helpers.game_helpers import get_game_config
 from dcs_simulation_engine.utils.chat import ChatOpenRouter
@@ -111,7 +116,7 @@ class RunManager(BaseModel):
     @computed_field(return_type=int)
     def turns(self) -> int:
         """Get the total number of turns taken."""
-        return len(self.state["events"])
+        return len(self.state["history"]) // 2  # each turn = user + ai
 
     @computed_field(return_type=int)
     def runtime_seconds(self) -> int:
@@ -267,8 +272,10 @@ class RunManager(BaseModel):
                     raise NotImplementedError(
                         f"Provider not implemented yet: {node.provider}"
                     )
-        # Also initialize simulation subgraph model(s)
-        context["models"]["simulation_subgraph"] = ChatOpenRouter()
+        # add subgraph models
+        subgraph_models = init_subgraph_context()
+        context["models"][VALIDATOR_NAME] = subgraph_models[VALIDATOR_NAME]
+        context["models"][UPDATER_NAME] = subgraph_models[UPDATER_NAME]
 
         # Compile the simulation graph
         try:
@@ -305,17 +312,8 @@ class RunManager(BaseModel):
     def step(
         self,
         user_input: Optional[Union[str, Mapping[str, Any]]] = None,
-    ) -> Dict[str, Any]:
-        """Advance the simulation one turn.
-
-        - If `user_input` is a string starting with '/', interpret as a command:
-            /quit | /stop            -> stop the simulation
-            /save [optional_path]    -> save state to OUTPUT_FPATH or given path
-            /state                   -> return current state (no graph step)
-        - Otherwise, treat as user text, append HumanMessage, and invoke one graph step.
-
-        Returns the updated state (dict).
-        """
+    ) -> Iterator[Any]:
+        """Advance the simulation one step/turn."""
         # logger.debug(f"RunManager step called with user_input: {user_input!r}")
 
         if self.start_ts is None:
@@ -334,7 +332,10 @@ class RunManager(BaseModel):
 
             if cmd in ("quit", "stop", "exit"):
                 self.exit(reason="received exit command")
-                return self.state  # type: ignore
+                yield {
+                    "type": "info",
+                    "content": f"Simulation exited with reason: {self.exit_reason}",
+                }
 
             elif cmd in ("feedback", "fb"):
                 # TODO: pre-release - implement more robust feedback handling
@@ -342,94 +343,60 @@ class RunManager(BaseModel):
                     f"Feedback received: {parts[1] if len(parts) > 1 else ''}"
                 )
                 # update state with special message "feedback received, thank you."
-                self.state["special_user_message"] = {
+                self.state["simulator_output"] = {
                     "type": "info",
                     "content": "Feedback received, thank you.",
                 }
-                return self.state  # type: ignore
+                yield self.state["simulator_output"]
             else:
+                self.state["user_input"] = {
+                    "type": "command",
+                    "content": user_input,
+                }
                 logger.warning(
-                    f"Run manager doesn't recognize this command: {cmd}. Continuing."
+                    f"Run manager doesn't recognize this command: {cmd}. "
+                    "Marking type as command and continuing."
                 )
 
         if self.exited:
-            logger.info("Simulation is exited; skipping graph invocation.")
+            logger.info("Simulation is exited; skipping graph call.")
             return self.state  # type: ignore
 
         try:
             # if user input, update message_draft to include it
             if user_input is not None:
                 if isinstance(user_input, str):
-                    self.state["event_draft"] = {
+                    self.state["user_input"] = {
                         "type": "user",
                         "content": user_input,
                     }
                 elif isinstance(user_input, Mapping):
-                    self.state["event_draft"] = dict(user_input)
-                    self.state["event_draft"]["type"] = "user"
+                    self.state["user_input"] = {
+                        "type": user_input.get("type", "user"),
+                        "content": user_input.get("content", ""),
+                    }
                 else:
                     raise TypeError(
                         f"user_input must be str or Mapping, got {type(user_input)}"
                     )
                 logger.debug(
-                    f"Updated state with event_draft: {self.state['event_draft']}"
+                    f"Updated state with user_input: {self.state['user_input']}"
                 )
-            # invoke the graph to get new state
-            new_state = self.graph.invoke(
+
+            stream = self.graph.stream(
                 state=self.state,  # dynamic state
-                context=self.context,  # static runtime ctx (n/pc, api connections, etc)
+                context=self.context,  # static runtime ctx (n/pc, api connections, etc
                 config=self.config,  # runnable config
             )
-            self.state = new_state
+            for event in stream:
+                logger.info(f"RunManager step yielding event: {event}")
+                if event.get("type") == "final_state":
+                    self.state = SimulationGraphState(**event["state"])
+                else:
+                    yield event
         except Exception as e:
             logger.exception(f"Error during graph invocation: {e}")
             raise
-
-        return self.state  # type: ignore
-
-    def play(
-        self,
-        input_provider: Optional[Callable[[], str]] = None,
-    ) -> Dict[str, Any]:
-        """Run an interactive loop until stopped or stopping conditions met.
-
-        - `input_provider` (optional): function returning the next user string.
-          Defaults to built-in `input`.
-        """
-        provider = input_provider or (lambda: input("user: "))
-
-        self.start_ts = datetime.now()
-
-        while not self.exited:
-            try:
-                # check simulation state vars/lifecycle for stopping conditions
-                # before calling provider
-                self._ensure_stopping_conditions()
-
-                events = self.state["events"]
-                if not events or len(events) == 0:
-                    logger.debug(
-                        "No events in state; taking initial graph step to setup scene."
-                    )
-                    user_text = None
-                elif events[-1].type == "ai":
-                    user_text = provider()
-                elif events[-1].type == "user":
-                    user_text = None
-                else:
-                    raise ValueError(
-                        f"Unknown last event type: {events[-1].type}. Cannot continue."
-                    )
-            except (EOFError, KeyboardInterrupt):
-                logger.error("User input was keyboard interrupted.")
-                user_text = "/stop"
-                self.exit(reason="user interrupted")
-
-            self.step(user_text)  # update state with new messages
-            # Note: stopping conditions are checked in step()
-            if self.exited:
-                break
-        return self.state  # type: ignore
 
     def exit(self, reason: str) -> None:
         """Mark the simulation as exited."""

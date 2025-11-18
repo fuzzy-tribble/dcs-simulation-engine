@@ -9,7 +9,6 @@ from tomlkit import key
 
 from dcs_simulation_engine.core.simulation_graph.context import ContextSchema
 from dcs_simulation_engine.core.simulation_graph.state import (
-    Retries,
     SimulationGraphState,
 )
 
@@ -145,29 +144,9 @@ def retry(
     - If actor is user: interrupt and replace draft with revised text.
     - If actor is system/agent: inject guidance as a system draft.
     """
-    # REQUIRED — let KeyError happen if missing
-    draft = state["event_draft"]  # Typed required
-    if not draft:
-        raise ValueError("retry node called but event_draft is missing.")
-    mtype = draft["type"]  # Typed required
-    retries: Retries = state["retries"]  # Typed required
-    limits: Retries = state["retry_limits"]  # Typed required
-
-    actor = "user" if mtype == "user" else "system"
-
-    # REQUIRED — no defaulting
-    user_retries = int(retries["user"])
-    system_retries = int(retries["ai"])
-    user_limit = int(limits["user"])
-    system_limit = int(limits["ai"])
-
-    # bump
-    if actor == "user":
-        user_retries += 1
-        remaining = max(user_limit - user_retries, 0)
-    else:
-        system_retries += 1
-        remaining = max(system_limit - system_retries, 0)
+    user_retry_budget = state["user_retry_budget"]  # Typed required
+    user_retry_budget -= 1
+    remaining = user_retry_budget
 
     # Jinja guidance
     if retry_message is None:
@@ -182,24 +161,11 @@ def retry(
         **{**state, "pc": context["pc"], "npc": context["npc"], "remaining": remaining}
     )
 
-    logger.debug(
-        f"Retry actor={actor} remaining={remaining} "
-        f"counters(user={user_retries}, system={system_retries})"
-    )
-
-    if actor == "user":
-
-        return {
-            "special_user_message": {"type": "info", "content": guidance},
-            "invalid_reason": None,  # clear invalid reason on retry
-            "retries": {"user": user_retries, "ai": system_retries},
-        }
-
-    # system/agent path
+    logger.debug(f"User retries remaining={remaining} ")
     return {
-        "event_draft": {"type": "ai", "content": guidance},
-        "invalid_reason": state["invalid_reason"],
-        "retries": {"user": user_retries, "ai": system_retries},
+        "special_user_message": {"type": "info", "content": guidance},
+        "invalid_reason": None,  # clear invalid reason on retry
+        "user_retry_budget": user_retry_budget,
     }
 
 

@@ -11,7 +11,7 @@ import json
 import re
 import threading
 import time
-from typing import Any, Callable, Dict, Hashable, List, Optional
+from typing import Any, Callable, Dict, Hashable, Iterator, List, Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import PromptTemplate
@@ -20,11 +20,19 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from loguru import logger
-from pydantic import ValidationError
 
+from dcs_simulation_engine.core.simulation_graph.constants import (
+    LARGE_PROMPT_WARN_BYTES,
+    LARGE_STATE_WARN_BYTES,
+    LONG_MODEL_WARN_SECONDS,
+    VALIDATOR_NAME,
+)
 from dcs_simulation_engine.core.simulation_graph.context import (
     ContextSchema,
     make_context,
+)
+from dcs_simulation_engine.core.simulation_graph.subgraph import (
+    build_simulation_subgraph,
 )
 from dcs_simulation_engine.utils.misc import byte_size_json, byte_size_pickle
 
@@ -33,15 +41,9 @@ from .conditions import predicate
 from .config import ConditionalItem, ConditionalTo, ElseOnly, GraphConfig, IfThen, Node
 from .state import (
     SimulationGraphState,
-    StateAdapter,
+    display_state_snapshot,
     make_state,
 )
-
-# tune as needed to log runtime warnings for large states/prompts/long runs
-LARGE_STATE_WARN_BYTES = 100_000
-LARGE_PROMPT_WARN_BYTES = 50_000
-LONG_INVOKE_WARN_SECONDS = 25.0
-LONG_MODEL_WARN_SECONDS = 15.0
 
 
 class SimulationGraph:
@@ -62,123 +64,6 @@ class SimulationGraph:
         self.name = name
         self.cgraph = cgraph  # runtime-only; not intended for serialization
 
-    def stream(
-        self,
-        state: SimulationGraphState,
-        context: ContextSchema,
-        config: RunnableConfig,
-        *,
-        long_running: Optional[float] = None,
-        timeout: Optional[float] = None,
-        cancel_event: Optional[threading.Event] = None,
-    ):
-        """Custom wrapper around cgraph.stream that adds control features.
-
-        Allow early stopping via:
-        - validation failure (is_valid == False)
-        - timeout (seconds)
-        - external cancel_event (e.g. UI cancel button)
-        - (and warns if long_running is True)
-        """
-        # TODO: write me & add typedefs
-        # self.cgraph.stream(
-        #     input=state,
-        #     context=context,
-        #     config=config,
-        #     # Streams the updates to the state after each step of the graph. If multiple updates are made in the same step (e.g., multiple nodes are run), those updates are streamed separately.
-        #     # stream_mode="updates",
-        #     # print_mode = "updates",
-        #     # output_keys = None,
-        #     # interrupt_before = None,
-        #     # interrupt_after = None,
-        #     # durability = None,
-        #     # subgraphs= True,
-        #     # debug = False
-        # )
-        pass
-
-    def invoke(
-        self,
-        state: SimulationGraphState,
-        context: ContextSchema,
-        config: RunnableConfig,
-    ) -> SimulationGraphState:
-        """Custom wrapper around cgraph.invoke.
-
-        All simulation graphs use the same SimulationGraphState input/output shape.
-        All take new inputs as message_draft and return updated SimulationGraphState.
-
-        - Validates input and output types.
-        - Helps enforce custom simulation invocation semantics.
-        """
-        if not self.cgraph:
-            raise RuntimeError("Cannot invoke SimulationGraph: no compiled graph.")
-
-        try:
-            # TODO: consider there a langgraph safe way to set max runtime for the whole
-            #  graph run? and exit if exceeded? As a failsafe against runaway costs.
-            start = time.perf_counter()
-
-            # Before running, reset fields that should not persist between invocations
-            logger.debug("Resetting fields before invoking graph: special_user_message")
-            state["special_user_message"] = None
-
-            logger.debug("Invoking SimulationGraph...")
-            logger.debug("Input keys: {}", state.keys())
-            # if invoke required internal retries, warn
-            system_retries_pre_invoke = state["retries"]["ai"]
-            new_state = self.cgraph.invoke(input=state, context=context, config=config)
-            elapsed = time.perf_counter() - start
-            if new_state["retries"]["ai"] > system_retries_pre_invoke:
-                logger.warning(
-                    """SimulationGraph.invoke required system retries during execution. 
-                    This may indicate that internal nodes could use prompt improvements 
-                    to reduce errors and improve clarity. Internal retries slow down 
-                    execution significantly and increase costs."""
-                )
-            # TODO: Reset retries??
-
-            if elapsed > LONG_INVOKE_WARN_SECONDS:
-                logger.warning(
-                    f"SimulationGraph.invoke took {elapsed:.3f}s which is quite long."
-                )
-            else:
-                logger.debug(f"SimulationGraph.invoke took {elapsed:.3f}s")
-
-        except Exception as e:
-            logger.error(f"Error occurred while invoking SimulationGraph: {e}")
-            raise
-
-        # After running, clear message_draft and invalid_reason, used internally only
-        logger.debug(
-            "Resetting fields before returning result: message_draft, invalid_reason"
-        )
-        new_state["message_draft"] = None
-        new_state["invalid_reason"] = None
-
-        # Validate output state
-        try:
-            new_state = StateAdapter.validate_python(new_state)
-        except ValidationError as e:
-            logger.error(
-                f"Invalid output SimulationGraphState from SimulationGraph: {new_state}\n"
-                f"Error: {e}"
-            )
-            raise
-
-        return new_state
-
-    def draw_ascii(self) -> str:
-        """ASCII art representation of the compiled graph."""
-        if not self.cgraph:
-            return "<no graph compiled>"
-        return self.cgraph.get_graph().draw_ascii()
-
-    def to_dict(self) -> dict[str, Any]:
-        """Tiny, optional serializer for observability/debug (cgraph not serialized)."""
-        return {"name": self.name, "has_cgraph": self.cgraph is not None}
-
-    # ----- Build / compile -----
     @classmethod
     def compile(cls, config: GraphConfig) -> "SimulationGraph":
         """Build and compile the graph from a GraphConfig (or default single-node).
@@ -203,15 +88,24 @@ class SimulationGraph:
         )
         node_fns: Dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {}
 
+        # compile the simulation subgraph
+        simulation_subgraph = build_simulation_subgraph()
+
         # For each node in the config, create a node agent/function
         temp_state = make_state()
         temp_context = make_context()
+
+        # Register the simulation subgraph as a node in this graph
+        SIM_SUBGRAPH_NODE_NAME = "__SIMULATION_SUBGRAPH__"
+        builder.add_node(SIM_SUBGRAPH_NODE_NAME, simulation_subgraph)
         for node in config.nodes:
             node_fns[node.name] = cls._make_node_fn(node, temp_state, temp_context)
             builder.add_node(node.name, node_fns[node.name])  # type: ignore
 
         def _norm(n: str) -> str:
             """Normalize special node names."""
+            if n == "__SIMULATION_SUBGRAPH__":
+                return SIM_SUBGRAPH_NODE_NAME
             return END if n == "__END__" else (START if n == "__START__" else n)
 
         for e in config.edges:
@@ -236,6 +130,9 @@ class SimulationGraph:
                     )
                 router = cls._build_router_from_clauses(clauses)
 
+                # TODO: update functionality to make lists ifs
+                # fan out in parallel and if/elifs wire synchronously
+
                 possible_keys: List[Hashable] = []
                 for c in clauses:
                     if isinstance(c, IfThen):
@@ -249,6 +146,8 @@ class SimulationGraph:
                         path_map["__END__"] = END
                     elif key == "__START__":
                         path_map["__START__"] = START
+                    elif key == "__SIMULATION_SUBGRAPH__":
+                        path_map["__SIMULATION_SUBGRAPH__"] = SIM_SUBGRAPH_NODE_NAME
                     else:
                         path_map[key] = key  # type: ignore[assignment]
 
@@ -266,6 +165,186 @@ class SimulationGraph:
         )
         cls._log_graph_debug(cgraph)
         return inst
+
+    def stream(
+        self,
+        state: SimulationGraphState,
+        context: ContextSchema,
+        config: RunnableConfig,
+        *,
+        long_running: Optional[float] = None,
+        timeout: Optional[float] = None,
+        cancel_event: Optional[threading.Event] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        """Custom wrapper around cgraph.stream that adds control features.
+
+        Allows early stopping via:
+        - validation failure (e.g., a validation_message with type == "error")
+        - timeout (seconds)
+        - external cancel_event (e.g. UI cancel button)
+
+        Also logs when runs exceed the `long_running` threshold.
+        """
+        start = time.monotonic()
+
+        # Make a mutable copy of the initial state so we can track the latest view
+        # as updates arrive from the graph.
+        if isinstance(state, dict):
+            current_state: Dict[str, Any] = dict(state)
+        else:
+            # Fallback: let pydantic / adapter unpack later if needed
+            current_state = dict(state)
+
+        if not self.cgraph:
+            raise RuntimeError("Cannot call SimulationGraph: no compiled graph.")
+
+        try:
+            logger.debug("Ressetting internal subgraph states before running graph...")
+            state["simulator_output"] = None
+            state["validator_response"] = None
+            state["updater_response"] = None
+            display_state_snapshot(state)
+            logger.debug("Running SimulationGraph...")
+            stream = self.cgraph.stream(
+                input=state,
+                context=context,
+                config=config,
+                # # Streams the updates to the state after each step of the graph.
+                # # If multiple updates are made in the same step (e.g., multiple
+                # #  nodes are run), those updates are streamed separately.
+                # stream_mode="updates",
+                # print_mode = "updates",
+                # output_keys = None,
+                # # Pause streaming run before or after specific nodes
+                # interrupt_before = None,
+                # # Pause streaming run right before a specific node (or nodes)
+                # interrupt_after = None,
+                # durability = None,
+                # NOTE:
+                # We currently rely on subgraphs=True, which means cgraph.stream(...)
+                # yields (path, node_updates_dict) tuples.
+                # If you ever set subgraphs=False, the shape may change to just
+                # node_updates_dict; the normalization below tries to handle both,
+                # but this function should be revisited if that config changes.
+                subgraphs=True,
+                # debug = False
+            )
+            for raw_update in stream:
+                now = time.monotonic()
+
+                # Normalize the update shape:
+                # - subgraphs=True  -> (path, node_updates_dict)
+                # - subgraphs=False -> node_updates_dict (defensive handling)
+                if isinstance(raw_update, tuple) and len(raw_update) == 2:
+                    path, node_updates = raw_update
+                else:
+                    path, node_updates = None, raw_update
+
+                if not isinstance(node_updates, dict):
+                    logger.error(
+                        f"Unexpected update type from cgraph.stream: {raw_update}"
+                        f" (path={path})"
+                    )
+                    continue
+
+                for node_name, node_update in node_updates.items():
+                    logger.debug(
+                        f"SimulationGraph stream update from node '{node_name}':"
+                        f" {node_update}",
+                    )
+                    if isinstance(node_update, dict):
+                        # If node_update is a partial state for this node, merge it
+                        # into current_state
+                        current_state.update(node_update)
+
+                    # External cancel
+                    if cancel_event is not None and cancel_event.is_set():
+                        logger.info(
+                            "SimulationGraph '%s' yielding cancel event.",
+                            self.name,
+                        )
+                        yield {
+                            "type": "info",
+                            "content": "Simulation cancelled by user.",
+                        }
+                        break
+
+                    # Timeout
+                    if timeout is not None and (now - start) > timeout:
+                        logger.warning(
+                            "SimulationGraph yielding timeout event after %.2fs",
+                            now - start,
+                        )
+                        yield {
+                            "type": "error",
+                            "content": f"Simulation timed out after "
+                            f"{timeout:.1f} seconds.",
+                        }
+                        break
+
+                    # Validation failure (assumes subgraph writes `validator_response`)
+                    validator_response = node_update.get("validator_response")
+                    is_validator_node = node_name.lower() == VALIDATOR_NAME.lower()
+                    is_error = (
+                        validator_response and validator_response.get("type") == "error"
+                    )
+                    if is_validator_node and is_error and validator_response:
+                        current_state["validator_response"] = validator_response
+                        content = validator_response.get("content")
+                        logger.info(
+                            "SimulationGraph stopping early due to"
+                            f" validation error. Yielding: {validator_response}"
+                        )
+                        yield {
+                            "type": "error",
+                            "content": content,
+                        }
+                        break
+                    else:
+                        logger.debug(
+                            f"SimulationGraph stream NOT YIELDING update"
+                            f" from node {node_name}"
+                            f"`type` field: {node_updates}",
+                        )
+            # All durring run updates, yeilded above,
+            # now we yeild the final output of the turn
+            display_state_snapshot(current_state)
+
+            user_input = current_state.get("user_input")
+            if user_input is not None:
+                yield {"type": user_input["type"], "content": user_input["content"]}
+            else:
+                logger.warning("Final state has no 'user_input' to yield.")
+
+            sim_output = current_state.get("simulator_output")
+            if sim_output is not None:
+                yield {"type": sim_output["type"], "content": sim_output["content"]}
+            else:
+                logger.warning("Final state has no 'simulator_output' to yield.")
+        finally:
+            duration = time.monotonic() - start
+            logger.debug("SimulationGraph run complete.")
+            display_state_snapshot(current_state)
+            yield {"type": "final_state", "state": current_state}
+
+            if long_running is not None and duration > long_running:
+                logger.warning(
+                    "SimulationGraph '%s' runtime %.3fs exceeded long_running "
+                    "threshold of %.3fs.",
+                    self.name,
+                    duration,
+                    long_running,
+                )
+
+    def draw_ascii(self) -> str:
+        """ASCII art representation of the compiled graph."""
+        if not self.cgraph:
+            return "<no graph compiled>"
+        return self.cgraph.get_graph().draw_ascii()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Tiny, optional serializer for observability/debug (cgraph not serialized)."""
+        return {"name": self.name, "has_cgraph": self.cgraph is not None}
 
     @staticmethod
     def _make_node_fn(

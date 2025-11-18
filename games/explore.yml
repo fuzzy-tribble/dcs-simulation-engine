@@ -144,7 +144,7 @@ graph_config:
       to: 
         conditional:
           # sometimes system writes a message to user
-          - if: "state['special_user_message']"
+          - if: "state['final_response']"
             then: __END__ # end graph so special message is displayed
           # on first turn, show welcome message
           - if: "state['lifecycle'] == 'ENTER'"
@@ -152,7 +152,7 @@ graph_config:
           # on exit lifecycle, show exit message
           - if: "state['lifecycle'] == 'EXIT'"
             then: exit_message
-          - if: "state['lifecycle'] == 'UPDATE' and state['event_draft']['type'] == 'user'"
+          - if: "state['lifecycle'] == 'UPDATE'"
             then: command_filter
           - if: "state['lifecycle'] == 'UPDATE' and state['event_draft']['type'] == 'ai'"
             then: update
