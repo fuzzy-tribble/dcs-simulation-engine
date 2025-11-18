@@ -212,7 +212,7 @@ class SimulationGraph:
                 # # Streams the updates to the state after each step of the graph.
                 # # If multiple updates are made in the same step (e.g., multiple
                 # #  nodes are run), those updates are streamed separately.
-                # stream_mode="updates",
+                stream_mode="updates",
                 # print_mode = "updates",
                 # output_keys = None,
                 # # Pause streaming run before or after specific nodes
@@ -231,6 +231,7 @@ class SimulationGraph:
             )
             for raw_update in stream:
                 now = time.monotonic()
+                # logger.debug(f"SimulationGraph stream got raw update: {raw_update}")
 
                 # Normalize the update shape:
                 # - subgraphs=True  -> (path, node_updates_dict)
@@ -267,7 +268,7 @@ class SimulationGraph:
                             "type": "info",
                             "content": "Simulation cancelled by user.",
                         }
-                        break
+                        return  # stop whole stream
 
                     # Timeout
                     if timeout is not None and (now - start) > timeout:
@@ -280,10 +281,14 @@ class SimulationGraph:
                             "content": f"Simulation timed out after "
                             f"{timeout:.1f} seconds.",
                         }
-                        break
+                        return  # stop whole stream
 
                     # Validation failure (assumes subgraph writes `validator_response`)
-                    validator_response = node_update.get("validator_response")
+                    validator_response = (
+                        node_update.get("validator_response")
+                        if isinstance(node_update, dict)
+                        else None
+                    )
                     is_validator_node = node_name.lower() == VALIDATOR_NAME.lower()
                     is_error = (
                         validator_response and validator_response.get("type") == "error"
@@ -299,7 +304,7 @@ class SimulationGraph:
                             "type": "error",
                             "content": content,
                         }
-                        break
+                        return  # stop whole stream
                     else:
                         logger.debug(
                             f"SimulationGraph stream NOT YIELDING update"
