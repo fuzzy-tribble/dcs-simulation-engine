@@ -173,9 +173,6 @@ class GameConfig(SerdeMixin, BaseModel):
     # Stopping conditions
     stopping_conditions: Dict[str, Any] = Field(default_factory=dict)
 
-    # State overrides
-    state_overrides: Dict[str, Any] = Field(default_factory=dict)
-
     # Access settings
     access_settings: AccessSettings
 

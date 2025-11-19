@@ -1,7 +1,7 @@
 """Builtin simulation graph node functions."""
 
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
 from langchain_core.prompts import PromptTemplate
 from loguru import logger
@@ -93,14 +93,16 @@ def command_filter(
 ) -> dict[str, Any]:
     """Builtin command filter node function."""
     # Check state.event_draft for command pattern (e.g., "/help" or "\help")
-    draft = state.get("event_draft")
-    if not draft:
+    user_input = state.get("user_input")
+    if not user_input:
+        logger.warning("Command filter called with no user input.")
         return {}  # no draft, no state updates
 
-    event = draft.get("content") or ""
+    event = user_input.get("content") or ""
     # regex: start of string, slash or backslash, one or more word chars or dash
     m = re.match(r"^[\\/](?P<cmd>[\w-]+)\b", event.strip())
     if not m:
+        logger.warning("No command found in user input for command_filter.")
         return {}  # no command found, no state updates
 
     command = m.group("cmd")
@@ -111,7 +113,7 @@ def command_filter(
     # command_handler is a dict of state updates
     command_handler = command_handlers[command]
     state_updates: dict[str, Any] = {
-        "event_draft": None,  # clear draft by default
+        "user_input": None,  # clear draft by default
     }
     render_kwargs = {
         **state,
@@ -131,42 +133,6 @@ def command_filter(
         f"Command '{command}' matched; applying state updates: {state_updates}."
     )
     return state_updates
-
-
-def retry(
-    state: SimulationGraphState,
-    context: ContextSchema,
-    retry_message: Optional[str] = None,
-) -> dict[str, Any]:
-    """Retry node function.
-
-    - Increments retries for the current actor (user/system).
-    - If actor is user: interrupt and replace draft with revised text.
-    - If actor is system/agent: inject guidance as a system draft.
-    """
-    user_retry_budget = state["user_retry_budget"]  # Typed required
-    user_retry_budget -= 1
-    remaining = user_retry_budget
-
-    # Jinja guidance
-    if retry_message is None:
-        retry_message = (
-            "Please revise your action. Use /help if you need a rules refresher. "
-            "Previous action: {{event_draft.content}} "
-            "Invalid reason: {{invalid_reason}} "
-            "{{remaining}} retries left."
-        )
-    tmpl = PromptTemplate.from_template(retry_message, template_format="jinja2")
-    guidance = tmpl.format(
-        **{**state, "pc": context["pc"], "npc": context["npc"], "remaining": remaining}
-    )
-
-    logger.debug(f"User retries remaining={remaining} ")
-    return {
-        "special_user_message": {"type": "info", "content": guidance},
-        "invalid_reason": None,  # clear invalid reason on retry
-        "user_retry_budget": user_retry_budget,
-    }
 
 
 def form(
@@ -195,7 +161,7 @@ def form(
 
     idx = first_unanswered(0)
 
-    # If there is a user draft, use it to answer the current unanswered question
+    # If there is a user input, use it to answer the current unanswered question
     answer_draft: dict = state.get("user_input")
     if idx is not None and answer_draft and answer_draft.get("type") == "user":
         answer_content = (answer_draft.get("content") or "").strip()
@@ -206,7 +172,15 @@ def form(
 
     # If all questions are now answered, exit
     if idx is None:
-        return {"lifecycle": "EXIT", "forms": {form_name: form}}
+        return {
+            "simulator_output": {
+                "type": "info",
+                "content": "Form Complete.",
+            },
+            "lifecycle": "EXIT",
+            "exit_reason": "Game completed.",
+            "forms": {form_name: form},
+        }
 
     # Otherwise, render and return the next question
     raw_question = questions[idx]["text"]

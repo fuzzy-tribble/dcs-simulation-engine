@@ -30,6 +30,7 @@ from dcs_simulation_engine.helpers import database_helpers as dbh
 from dcs_simulation_engine.helpers.game_helpers import get_game_config
 from dcs_simulation_engine.utils.chat import ChatOpenRouter
 from dcs_simulation_engine.utils.file import safe_timestamp, unique_fpath
+from dcs_simulation_engine.utils.misc import make_human_readable_values
 
 # TODO: pre-release - add safety/validation heuristic for overly complex inputs like
 # really long actions....length heuristic using tokens or character threshold
@@ -254,7 +255,15 @@ class RunManager(BaseModel):
 
         # Initialize runtime context (llms) and inject them into runtime
         # context at build time
-        context = ContextSchema(pc=pc, npc=npc, models={})
+        human_readble_pc = make_human_readable_values(pc)
+        human_readble_npc = make_human_readable_values(npc)
+        context = ContextSchema(
+            pc=human_readble_pc,
+            npc=human_readble_npc,
+            models={},
+            additional_validator_rules="",
+            additional_updater_rules="",
+        )
         for node in game_config.graph_config.nodes:
             if node.provider:  # only setup nodes with a provider
                 if node.additional_kwargs is None:
@@ -276,6 +285,16 @@ class RunManager(BaseModel):
                     raise NotImplementedError(
                         f"Provider not implemented yet: {node.provider}"
                     )
+        # if subgraph customizations exist, add them to context
+        if game_config.subgraph_customizations:
+            if game_config.subgraph_customizations.additional_validator_rules:
+                context["additional_validator_rules"] = (
+                    game_config.subgraph_customizations.additional_validator_rules
+                )
+            if game_config.subgraph_customizations.additional_updater_rules:
+                context["additional_updater_rules"] = (
+                    game_config.subgraph_customizations.additional_updater_rules
+                )
         # add subgraph models
         subgraph_models = init_subgraph_context()
         context["models"][VALIDATOR_NAME] = subgraph_models[VALIDATOR_NAME]

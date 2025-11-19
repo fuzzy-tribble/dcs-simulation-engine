@@ -1,17 +1,14 @@
-### METADATA ###
 name: Foresight
 version: 1.0.0
 authors: ["DCS"]
 description: |
   A game where players have to predict the next action of another character based on their experiential knowledge of that character. This is useful for measuring how quickly and accurately players learn to model other cognitive systems that are different from their own.
 
-### ACCESS SETTINGS ###
 access_settings:
   user:
     valid:
       players: {} # requires consent/signed
 
-### DATA COLLECTION SETTINGS ###
 data_collection_settings:
   save_runs: true
 
@@ -22,6 +19,14 @@ character_settings:
   npc:
     valid:
       characters: {}
+
+subgraph_customizations:
+  additional_validator_rules: |
+    - The user's input MUST include a new action but MAY also include a prediction about what the other character's response will be. For example, "I wave my hand and predict they will wave back."
+  additional_updater_rules: |
+    - Ignore Predictions:
+    The user's input MAY include a prediction about what the simulator character's response will be. Ignore any predictions and just focus on responding to the user's action.
+
 graph_config:
   name: foresight_graph
   description: A PC engages with a NPC in as many scenes and actions as desired. When the PC feels confident, it uses the '/predict' command to submit a prediction about the NPCs next action. We collect data about the prediction accuracy over time.

@@ -247,7 +247,7 @@ class SimulationGraph:
                         f" (path={path})"
                     )
                     continue
-
+                # Process each node update
                 for node_name, node_update in node_updates.items():
                     logger.debug(
                         f"SimulationGraph stream update from node '{node_name}':"
@@ -317,7 +317,8 @@ class SimulationGraph:
                             current_state["lifecycle"] = "EXIT"
                         yield {
                             "type": "error",
-                            "content": content,
+                            "content": content + " Retries left: "
+                            f"{current_state.get('user_retry_budget', 0)}",
                         }
                         return  # stop whole stream
 

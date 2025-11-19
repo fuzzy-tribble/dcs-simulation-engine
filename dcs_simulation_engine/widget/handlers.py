@@ -6,7 +6,6 @@ Send → enqueue → sim.play consumes → timer polls state → new messages ap
 
 from __future__ import annotations
 
-import random
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Tuple
 
@@ -234,23 +233,8 @@ def on_gate_continue(state: SessionState, token_value: str) -> Tuple[
             updated_setup_customization_group = gr.update(visible=True)
             updated_setup_pc_dropdown_group = gr.update(visible=bool(valid_pcs))
             updated_setup_npc_dropdown_group = gr.update(visible=bool(valid_npcs))
-            updated_setup_pc_selector = gr.update(
-                choices=valid_pcs,
-                value=(
-                    valid_pcs[random.randint(0, len(valid_pcs) - 1)]
-                    if valid_pcs
-                    else None
-                ),
-            )
-
-            updated_setup_npc_selector = gr.update(
-                choices=valid_npcs,
-                value=(
-                    valid_npcs[random.randint(0, len(valid_npcs) - 1)]
-                    if valid_npcs
-                    else None
-                ),
-            )
+            updated_setup_pc_selector = gr.update(choices=valid_pcs)
+            updated_setup_npc_selector = gr.update(choices=valid_npcs)
         except PermissionError as e:
             logger.warning(f"PermissionError in on_continue: {e}")
             updated_token_error_box = gr.update(
@@ -367,21 +351,7 @@ def process_new_user_chat_message(
         raise gr.Error(USER_FRIENDLY_EXC)
     run = state["run"]
 
-    # If the simulation has already exited just inform the user
-    if run.exited:
-        logger.debug(
-            "on_new_user_message found run.exited True; not enqueuing user message"
-        )
-        formatted_response = format(
-            {
-                "type": "info",
-                "content": f"The simulation has ended. Reason: {run.exit_reason}",
-            }
-        )
-        yield formatted_response
-
     # Add any initial history if not already present
-    # TODO: fix chat history append
     if "initial_history" not in state:
         logger.warning("No initial_history found in state during on_new_user_message.")
     else:
@@ -408,6 +378,7 @@ def process_new_user_chat_message(
                 }
             )
             yield formatted_response
+            return  # early exit
 
         for event in run.step(new_user_message):
             etype = event.get("type")

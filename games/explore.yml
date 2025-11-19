@@ -49,15 +49,8 @@ graph_config:
   name: explore-game-graph
   description: A game flow graph that sets up and continues a scene including abilities checkpoints for character actions.
   # Custom state field values that can be (used in nodes and edges)
-  # TODO: add context_overrides to override context values per game if needed
-  # context_overrides:
-  #   retry_limits:
-  #     user: 2
-  #     simulator: 2
   state_overrides:
-    retry_limits: 
-      user: 2
-      ai: 2
+    user_retry_budget: 10
   ### Graph Nodes ###
   # If kind is "builtin.<name>" then it takes config according to that builtin function definition.
   # If kind is "custom" then it takes provider, model, and system_template that invokes a model and returns a dict/object according to "Output format" in the system_template.
@@ -126,7 +119,7 @@ graph_config:
           - if: "state['lifecycle'] == 'EXIT'"
             then: exit_message
           - if: "state['lifecycle'] == 'UPDATE'"
-            then: __SIMULATION_SUBGRAPH__
+            then: command_filter
           - else: error_in_lifecycle
     
     # after welcome message, run update node to setup initial scene

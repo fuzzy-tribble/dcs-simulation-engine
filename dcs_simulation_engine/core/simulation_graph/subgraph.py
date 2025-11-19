@@ -42,10 +42,8 @@ from dcs_simulation_engine.core.simulation_graph.constants import (
     LARGE_STATE_WARN_BYTES,
     LONG_MODEL_WARN_SECONDS,
     MAX_USER_INPUT_LENGTH,
-    UPDATER_MODEL,
     UPDATER_NAME,
     UPDATER_SYSTEM_TEMPLATE,
-    VALIDATOR_MODEL,
     VALIDATOR_NAME,
     VALIDATOR_SYSTEM_TEMPLATE,
 )
@@ -57,18 +55,145 @@ from dcs_simulation_engine.core.simulation_graph.state import (
 from dcs_simulation_engine.utils.chat import ChatOpenRouter
 from dcs_simulation_engine.utils.misc import byte_size_json, byte_size_pickle
 
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
 
-def validate_input(
+
+def _warn_if_large_state(state: SimulationGraphState, node_name: str) -> None:
+    """Log a warning if the pickled state is large."""
+    try:
+        n = byte_size_pickle(state)
+        if n > LARGE_STATE_WARN_BYTES:
+            logger.warning(f"State size large: {n/1024:.1f} KB in node '{node_name}'")
+    except Exception:
+        logger.debug("State size check failed (non-serializable)")
+
+
+def _llm_node(
+    *,
+    node_name: str,
+    system_template: str,
+    model_key: str,
+    state_key: str,
+    state: SimulationGraphState,
+    runtime: Runtime[ContextSchema],
+    extra_template_kwargs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Shared LLM pipeline for validator/updater-like nodes.
+
+    Handles:
+    - state size logging
+    - system prompt rendering (jinja2)
+    - prompt size logging
+    - LLM invocation + latency logging
+    - JSON-block extraction
+
+    Returns a dict of `{state_key: SimulationMessage | dict}` suitable for
+    merging into the SimulationGraphState.
+    """
+    _warn_if_large_state(state, node_name)
+
+    extra_template_kwargs = extra_template_kwargs or {}
+
+    # ----- Render system prompt safely -----
+    compiled_tmpl = PromptTemplate.from_template(
+        system_template, template_format="jinja2"
+    )
+    try:
+        rendered_sys = compiled_tmpl.format(
+            **{
+                **state,
+                "pc": runtime.context["pc"],
+                "npc": runtime.context["npc"],
+                "additional_validator_rules": runtime.context[
+                    "additional_validator_rules"
+                ],
+                "additional_updater_rules": runtime.context["additional_updater_rules"],
+                **extra_template_kwargs,
+            }
+        )
+    except Exception as ex:
+        raise ValueError(
+            f"Node '{node_name}' failed to render system_template "
+            f"with current state: {ex}"
+        ) from ex
+
+    msgs_for_model: List[dict[str, str]] = [{"type": "system", "content": rendered_sys}]
+    logger.debug(f"Node '{node_name}' called with:\n{rendered_sys}")
+
+    # ----- Prompt size check -----
+    try:
+        m = byte_size_json(msgs_for_model)
+        if m > LARGE_PROMPT_WARN_BYTES:
+            logger.warning(f"Prompt size large: {m/1024:.1f} KB in node '{node_name}'")
+    except Exception:
+        logger.debug("Prompt size check failed")
+
+    # ----- Call LLM -----
+    start = time.perf_counter()
+    try:
+        llm = runtime.context["models"][model_key]
+        # keep the explicit kwarg style to match typical LC usage
+        response = llm.invoke(input=msgs_for_model)
+        elapsed = time.perf_counter() - start
+        if elapsed > LONG_MODEL_WARN_SECONDS:
+            logger.warning(
+                f"Node '{node_name}' LLM call"
+                f"took {elapsed:.3f}s which is quite long."
+            )
+        else:
+            logger.debug(f"Node '{node_name}' LLM call" f" took {elapsed:.3f} seconds.")
+    except Exception as ex:
+        # TODO: add finer-grained error handling (rate limit, timeout,
+        # permissions, etc) eg. if rate limit, maybe default retries
+        # instead of crash the game.
+        raise RuntimeError(
+            f"Node '{node_name}' LLM invocation failed "
+            f"(rate limit/timeout/permissions?): {ex}"
+        ) from ex
+
+    # ----- Try to extract and merge JSON output -----
+    response_text = getattr(response, "content", None)
+    if response_text is None:
+        response_text = str(response)
+
+    # Heuristic: grab the first top level {...} block (tolerate extra prose)
+    try:
+        match = re.search(r"\{.*\}", response_text, flags=re.DOTALL)
+        if match:
+            return {state_key: json.loads(match.group(0))}
+    except Exception as ex:
+        logger.warning(
+            f"Node '{node_name}' returned non-JSON or unparsable JSON; "
+            f"preserving raw text. Error: {ex}",
+        )
+
+    # Fallback: preserve raw text as an error SimulationMessage
+    return {
+        state_key: SimulationMessage(
+            type="error",
+            content=response_text,
+        )
+    }
+
+
+# ---------------------------------------------------------------------------
+# Nodes
+# ---------------------------------------------------------------------------
+
+
+def validator(
     state: SimulationGraphState, runtime: Runtime[ContextSchema]
 ) -> Dict[str, Any]:
     """Validate the user input and return a uniform message payload."""
     logger.debug(f"{VALIDATOR_NAME} IN")
-    state_updates: Dict[str, SimulationMessage]
     user_input = state["user_input"]
     user_input_content = user_input.get("content", "") if user_input else ""
+
+    # Fast paths that don't need the LLM
     if user_input is None:
-        logger.warning(f"{VALIDATOR_NAME} called with no user_input in state")
-        state_updates = {
+        state_updates: Dict[str, Any] = {
             "validator_response": SimulationMessage(
                 type="info", content="User input is None. Marking validation as passed."
             ),
@@ -94,98 +219,23 @@ def validate_input(
             )
         }
     else:
-        # Check state size for logging purposes
-        try:
-            n = byte_size_pickle(state)
-            if n > LARGE_STATE_WARN_BYTES:
-                logger.warning(
-                    f"State size large: {n/1024:.1f} KB in node '{VALIDATOR_NAME}'"
-                )
-        except Exception:
-            logger.debug("State size check failed (non-serializable)")
-
-        # ----- Render system prompt safely -----
-        msgs_for_model: List[dict[str, str]] = []
-        compiled_tmpl = PromptTemplate.from_template(
-            VALIDATOR_SYSTEM_TEMPLATE, template_format="jinja2"
+        # Shared LLM pipeline
+        state_updates = _llm_node(
+            node_name=VALIDATOR_NAME,
+            system_template=VALIDATOR_SYSTEM_TEMPLATE,
+            model_key=VALIDATOR_NAME,  # models[VALIDATOR_NAME] in context
+            state_key="validator_response",
+            state=state,
+            runtime=runtime,
+            extra_template_kwargs={},
         )
-        try:
-            rendered_sys = compiled_tmpl.format(
-                **{
-                    **state,
-                    "pc": runtime.context["pc"],
-                    "npc": runtime.context["npc"],
-                }
-            )
-        except Exception as ex:
-            raise ValueError(
-                f"Node '{VALIDATOR_NAME}' failed to render system_template \
-                    with current state: {ex}"
-            ) from ex
-        msgs_for_model.append({"type": "system", "content": rendered_sys})
-        logger.debug(f"Node '{VALIDATOR_NAME}' called with:\n{rendered_sys}")
-        # ----- Prompt size check -----
-        try:
-            m = byte_size_json(msgs_for_model)
-            if m > LARGE_PROMPT_WARN_BYTES:
-                logger.warning(
-                    f"Prompt size large: {m/1024:.1f} KB in node '{VALIDATOR_NAME}'"
-                )
-        except Exception:
-            logger.debug("Prompt size check failed")
 
-        # ----- Call LLM -----
-        start = time.perf_counter()
-        try:
-            context = runtime.context
-            llm = context["models"]["subgraph_validator"]
-            response = llm.invoke(input=msgs_for_model)
-            elapsed = time.perf_counter() - start
-            if elapsed > LONG_MODEL_WARN_SECONDS:
-                logger.warning(
-                    f"Node '{VALIDATOR_NAME}' running LLM ({VALIDATOR_MODEL}) "
-                    f"took {elapsed:.3f}s which is quite long."
-                )
-            else:
-                logger.debug(
-                    f"Node '{VALIDATOR_NAME}' running LLM ({VALIDATOR_MODEL})"
-                    f" took {elapsed:.3f} seconds."
-                )
-        except Exception as ex:
-            # TODO: add finer-grained error handling (rate limit, timeout,
-            # permissions, etc) eg. if rate limit, maybe default retries
-            # instead of crash the game.
-            raise RuntimeError(
-                f"Node 'subgraph_validator' LLM invocation failed \
-                    (rate limit/timeout/permissions?): {ex}"
-            ) from ex
-
-        response_text = getattr(response, "content", None)
-        if response_text is None:
-            response_text = str(response)
-
-        # ----- Try to extract and merge JSON output -----
-        # Heuristic: grab the first top level {...} block (tolerate extra prose)
-        try:
-            match = re.search(r"\{.*\}", response_text, flags=re.DOTALL)
-            if match:
-                state_updates = {"validator_response": json.loads(match.group(0))}
-        except Exception as ex:
-            logger.warning(
-                f"Node '{VALIDATOR_NAME}' returned non-JSON or unparsable JSON;"
-                f" preserving raw text. Error: {ex}",
-            )
-        # TODO: BEFORE MERGING/PATCHING, MAKE SURE MODEL ONLY
-        # RETURNED WHAT INSTRUCTIONS TOLD IT TO IN OUTPUT_FORMAT
-        # node functions updates are correctly as instructed in
-        # system prompt...ie that it didn't inject or delete required
-        # fields from "Output Format: {...}"
     logger.info(f"{VALIDATOR_NAME.upper()} response => {state_updates}")
     logger.debug(f"{VALIDATOR_NAME} OUT")
     return state_updates
 
 
-def update_world(
+def updater(
     state: SimulationGraphState, runtime: Runtime[ContextSchema]
 ) -> Dict[str, Any]:
     """Generate an in-character response to the user input.
@@ -195,102 +245,25 @@ def update_world(
     responsible for deciding whether to use this response.
     """
     logger.debug(f"{UPDATER_NAME} IN")
-    state_updates: Dict[str, SimulationMessage]
     user_input = state["user_input"]
     user_input_content = user_input.get("content", "") if user_input else ""
-    # Check state size for logging purposes
-    try:
-        n = byte_size_pickle(state)
-        if n > LARGE_STATE_WARN_BYTES:
-            logger.warning(
-                f"State size large: {n/1024:.1f} KB in node '{VALIDATOR_NAME}'"
-            )
-    except Exception:
-        logger.debug("State size check failed (non-serializable)")
 
-    # ----- Render system prompt safely -----
-    msgs_for_model: List[dict[str, str]] = []
-    compiled_tmpl = PromptTemplate.from_template(
-        UPDATER_SYSTEM_TEMPLATE, template_format="jinja2"
+    state_updates = _llm_node(
+        node_name=UPDATER_NAME,
+        system_template=UPDATER_SYSTEM_TEMPLATE,
+        model_key=UPDATER_NAME,  # models[UPDATER_NAME] in context
+        state_key="updater_response",
+        state=state,
+        runtime=runtime,
+        extra_template_kwargs={"user_input_content": user_input_content},
     )
-    try:
-        rendered_sys = compiled_tmpl.format(
-            **{
-                **state,
-                "user_input_content": user_input_content,
-                "pc": runtime.context["pc"],
-                "npc": runtime.context["npc"],
-            }
-        )
-    except Exception as ex:
-        raise ValueError(
-            f"Node '{UPDATER_NAME}' failed to render system_template \
-                with current state: {ex}"
-        ) from ex
-    msgs_for_model.append({"type": "system", "content": rendered_sys})
-    logger.debug(f"Node '{UPDATER_NAME}' called with:\n{rendered_sys}")
-    # ----- Prompt size check -----
-    try:
-        m = byte_size_json(msgs_for_model)
-        if m > LARGE_PROMPT_WARN_BYTES:
-            logger.warning(
-                f"Prompt size large: {m/1024:.1f} KB in node '{UPDATER_NAME}'"
-            )
-    except Exception:
-        logger.debug("Prompt size check failed")
 
-    # ----- Call LLM -----
-    start = time.perf_counter()
-    try:
-        context = runtime.context
-        llm = context["models"][UPDATER_NAME]
-        response = llm.invoke(msgs_for_model)
-        elapsed = time.perf_counter() - start
-        if elapsed > LONG_MODEL_WARN_SECONDS:
-            logger.warning(
-                f"Node '{UPDATER_NAME}' running LLM ({UPDATER_MODEL}) "
-                f"took {elapsed:.3f}s which is quite long."
-            )
-        else:
-            logger.debug(
-                f"Node '{UPDATER_NAME}' running LLM ({UPDATER_MODEL})"
-                f" took {elapsed:.3f} seconds."
-            )
-    except Exception as ex:
-        # TODO: add finer-grained error handling (rate limit, timeout,
-        # permissions, etc) eg. if rate limit, maybe default retries
-        # instead of crash the game.
-        raise RuntimeError(
-            f"Node '{UPDATER_NAME}' LLM invocation failed \
-                (rate limit/timeout/permissions?): {ex}"
-        ) from ex
-
-    response_text = getattr(response, "content", None)
-    if response_text is None:
-        response_text = str(response)
-
-    # ----- Try to extract and merge JSON output -----
-    # Heuristic: grab the first top level {...} block (tolerate extra prose)
-    try:
-        match = re.search(r"\{.*\}", response_text, flags=re.DOTALL)
-        if match:
-            state_updates = {"updater_response": json.loads(match.group(0))}
-    except Exception as ex:
-        logger.warning(
-            f"Node '{UPDATER_NAME}' returned non-JSON or unparsable JSON;"
-            f" preserving raw text. Error: {ex}",
-        )
-    # TODO: BEFORE MERGING/PATCHING, MAKE SURE MODEL ONLY
-    # RETURNED WHAT INSTRUCTIONS TOLD IT TO IN OUTPUT_FORMAT
-    # node functions updates are correctly as instructed in
-    # system prompt...ie that it didn't inject or delete required
-    # fields from "Output Format: {...}"
     logger.info(f"{UPDATER_NAME.upper()} response => {state_updates}")
     logger.debug(f"{UPDATER_NAME} OUT")
     return state_updates
 
 
-def finalize(state: SimulationGraphState) -> Dict[str, SimulationMessage]:
+def finalizer(state: SimulationGraphState) -> Dict[str, SimulationMessage]:
     """Aggregate validation and response messages to produce a final message.
 
     Rules:
@@ -334,7 +307,7 @@ def finalize(state: SimulationGraphState) -> Dict[str, SimulationMessage]:
     else:
         # Validation passed but we have no response yet.
         logger.warning(
-            "finalize: validation passed but no updater_response present in state"
+            "finalizer: validation passed but no updater_response present in state"
         )
         state_updates = {
             "simulator_output": SimulationMessage(
@@ -368,19 +341,19 @@ def build_simulation_subgraph() -> CompiledStateGraph:
     builder = StateGraph(SimulationGraphState)
 
     # Register nodes
-    builder.add_node(VALIDATOR_NAME, validate_input)
-    builder.add_node(UPDATER_NAME, update_world)
-    builder.add_node("finalize", finalize)
+    builder.add_node(VALIDATOR_NAME, validator)
+    builder.add_node(UPDATER_NAME, updater)
+    builder.add_node(FINALIZER_NAME, finalizer)
 
     # Fan-out from START to both worker nodes in parallel
     builder.add_edge(START, VALIDATOR_NAME)
     builder.add_edge(START, UPDATER_NAME)
 
     # Both workers feed into the aggregate node
-    builder.add_edge(VALIDATOR_NAME, "finalize")
-    builder.add_edge(UPDATER_NAME, "finalize")
+    builder.add_edge(VALIDATOR_NAME, FINALIZER_NAME)
+    builder.add_edge(UPDATER_NAME, FINALIZER_NAME)
     # Finalize ends the subgraph
-    builder.add_edge("finalize", END)
+    builder.add_edge(FINALIZER_NAME, END)
 
     return builder.compile()
 

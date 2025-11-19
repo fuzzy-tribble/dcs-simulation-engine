@@ -2,27 +2,12 @@ name: Teamwork
 version: 1.0.0
 description: |
   A game where a player character (PC) and non-player character (NPC) collaborate to achieve a shared goal (optionally over multiple sessions). It is useful to measure how well characters with divergent abilities work together toward a shared objective.
-
-### ACCESS SETTINGS ###
-# Defines who may access/play using a MongoDB-style query on players.
-# Examples:
-#   - Anyone may play: {}
-#   - Players must have a player_id: { "where": { "player_id": { "$exists": true } } }
-#   - Only with consent: { "consent_given": true }
-#   - Only with expertise data: { "expertise": { "$exists": true } }
 access_settings:
   user:
     valid:
       players: {}  # open to any players
-
-### DATA COLLECTION SETTINGS ###
-# Defines what data is collected durring and after game play.
 data_collection_settings:
   save_runs: false
-
-### CHARACTER SELECTION SETTINGS ###
-# Defines what characters may be used for the user/player character (PC) and non-player character (NPC) using a MongoDB-style query on collections characters, players or runs.
-# NOTE: if the interface allows users to select PC and NPC characters thats fine, their selection will just be validated against these criteria. If no selection is provided and the query returns multiple characters one will be selected at random. If one character is returned it will be used.
 character_settings:
   # A wide range of PC and NPC characters are allowed. PC can be any character with human-like-cognition and NPC can be any other character.
   pc:
@@ -32,14 +17,12 @@ character_settings:
   npc:
     valid:
       characters: {} # allow any NPC character
-
-### ADDITIONAL STOPPING CRITERIA ###
 stopping_conditions:
   runtime_seconds: [">=600"] # stop after 10 minutes
   turns: [">=50"]    # stop after 50 total turns
-
-### GAME FLOW/GRAPH SETTINGS ###
-# Defines the game lifecycle and objectives, and overall flow using a Langgraph graph of nodes and edges. Nodes are i/o functions. We provide builtins for common functionality (like forms, checkpoints, etc.). 
+subgraph_customizations:
+  additional_updater_rules: |
+    - Collaborative Interaction: Both the user and simulator characters actions should working together to achieve a shared goal. The opening scene should setup a scene where both characters have a reason to collaborate based on their descriptions and abilities and possible goals.
 graph_config:
   # Optional metadata
   name: explore-game-graph
@@ -63,7 +46,7 @@ graph_config:
       kwargs:
         command_handlers:
           help:
-            special_user_message:
+            simulator_output:
               type: info
               content: |
                 Describe an action...
@@ -72,10 +55,10 @@ graph_config:
                 Here is are reminder of your character's abilities:
                 {{ pc.abilities }}
     - name: enter_message
-      kind: builtin.update_state # message builtin func takes a message: str and displays writes it to special_user_message so the user can see it without it being part of the message history.
+      kind: builtin.update_state # message builtin func takes a message: str and displays writes it to simulator_output so the user can see it without it being part of the message history.
       kwargs:
         state_updates:
-          special_user_message:
+          simulator_output:
             type: info
             content: |
               # Welcome
@@ -89,7 +72,7 @@ graph_config:
       kind: builtin.update_state
       kwargs:
         state_updates:
-          special_user_message:
+          simulator_output:
             type: info
             content: |
               Game exited with reason: {{ exit_reason }}
@@ -97,7 +80,7 @@ graph_config:
       kind: builtin.update_state
       kwargs:
         state_updates:
-          special_user_message:
+          simulator_output:
             type: info
             content: |
               # Game Complete
