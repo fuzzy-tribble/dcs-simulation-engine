@@ -147,6 +147,9 @@ class SimulationGraphState(TypedDict, total=True):
     # Data collection management
     forms: Optional[dict[str, Form]]
 
+    # Node scratchpad in case any reasoning, or additional state is needed
+    scratchpad: Optional[dict[str, Any]]
+
 
 # Used for validation and parsing
 StateAdapter = TypeAdapter(SimulationGraphState)

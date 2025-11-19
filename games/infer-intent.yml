@@ -75,22 +75,21 @@ character_settings:
     valid:
       characters:
         where:
-          common_descriptors:
-            "$regex": "human-?like"
-            "$options": "i"
+          hid: "human-normative"
   npc:
     valid:
       characters:
-        where:
+        where: # character hid isn't human-normative
           hid:
             "$ne": "human-normative"
-        # characters: { 'where': { $ne : { hid: 'human-normative' } } } # valid if the npc is not human normative
-    # invalid:
-    #   runs:
-    #     where:
-    #       player_id: player_id
-    #       game_config.name: "Infer Intent"
-        # runs: { 'where': { player_id: player_id, game_config.name: 'Infer Intent' } } # and the player has not played this game before
+    invalid: # invalid where this player has already played this game with this character
+      runs:
+        where:
+          player_id: player_id
+          game_config.name: "Infer Intent"
+          context.npc.hid: context.npc.hid
+
+        
 stopping_conditions:
   turns: [">=30"]
 subgraph_customizations:

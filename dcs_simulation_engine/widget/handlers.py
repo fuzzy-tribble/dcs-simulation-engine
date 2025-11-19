@@ -378,36 +378,34 @@ def process_new_user_chat_message(
                 }
             )
             yield formatted_response
-            return  # early exit
+        else:
+            for event in run.step(new_user_message):
+                etype = event.get("type")
+                content = event.get("content")
 
-        for event in run.step(new_user_message):
-            etype = event.get("type")
-            content = event.get("content")
-
-            # format simulator responses/messages for gradio chat display
-            if etype in {"ai", "assistant"}:
-                formatted_response = format(
-                    {
-                        "type": "ai",
-                        "content": content,
-                    }
-                )
-                yield from stream_msg(formatted_response)  # stream simulator reply
-            elif etype in {"info", "system", "error", "warning"}:
-                formatted_response = format(
-                    {
-                        "type": etype,
-                        "content": content,
-                    }
-                )
-                yield formatted_response  # don't stream system/info messages
-            else:
-                logger.warning(
-                    f"Unknown event type yielded from simulator: {etype}."
-                    " Skipping display."
-                )
-                continue
-
+                # format simulator responses/messages for gradio chat display
+                if etype in {"ai", "assistant"}:
+                    formatted_response = format(
+                        {
+                            "type": "ai",
+                            "content": content,
+                        }
+                    )
+                    yield from stream_msg(formatted_response)  # stream simulator reply
+                elif etype in {"info", "system", "error", "warning"}:
+                    formatted_response = format(
+                        {
+                            "type": etype,
+                            "content": content,
+                        }
+                    )
+                    yield formatted_response  # don't stream system/info messages
+                else:
+                    logger.warning(
+                        f"Unknown event type yielded from simulator: {etype}."
+                        " Skipping display."
+                    )
+                    continue
     except Exception:
         logger.exception("Simulator step raised an exception.")
         formatted_response = format(
