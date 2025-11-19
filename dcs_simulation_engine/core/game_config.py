@@ -152,6 +152,13 @@ VersionStr = Annotated[
 ]
 
 
+class SubgraphCustomizations(BaseModel):
+    """Customization options for the simulation subgraph."""
+
+    additional_validator_rules: Optional[str] = None
+    additional_updater_rules: Optional[str] = None
+
+
 class GameConfig(SerdeMixin, BaseModel):
     """Top-level configuration for the game."""
 
@@ -178,6 +185,9 @@ class GameConfig(SerdeMixin, BaseModel):
     # Character settings
     character_settings: CharacterSettings
 
+    subgraph_customizations: SubgraphCustomizations = Field(
+        default_factory=SubgraphCustomizations
+    )
     graph_config: GraphConfig
 
     def validate_mongo_queries(self) -> None:

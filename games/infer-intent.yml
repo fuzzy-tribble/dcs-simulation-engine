@@ -104,6 +104,10 @@ character_settings:
 stopping_conditions:
   turns: [">=30"]
 
+subgraph_customizations:
+  additional_validator_rules: |
+    - DO NOT reveal the your character's type (human, etc), abilities.
+
 ### GAME FLOW/GRAPH SETTINGS ###
 graph_config:
   name: inter-intent-graph

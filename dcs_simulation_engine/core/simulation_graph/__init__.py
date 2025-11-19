@@ -8,5 +8,6 @@ __all__ = [
     "SimulationGraph",
     "SimulationGraphState",
     "GraphConfig",
+    "SubgraphConfig",
     "make_state",
 ]

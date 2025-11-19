@@ -392,12 +392,12 @@ def init_subgraph_context() -> Dict[str, Any]:
     """
     models: Dict[str, Any] = {}
     models[VALIDATOR_NAME] = ChatOpenRouter(
-        model=VALIDATOR_MODEL,
+        model="openai/gpt-5-mini",
         timeout=5,  # or httpx.Timeout for more control
         max_retries=2,  # provider level retries
     )
     models[UPDATER_NAME] = ChatOpenRouter(
-        model=UPDATER_MODEL,
+        model="openai/gpt-5-mini",
         timeout=5,  # or httpx.Timeout for more control
         max_retries=2,  # provider level retries
     )

@@ -16,6 +16,9 @@ from pydantic import (
 )
 
 from dcs_simulation_engine.core.simulation_graph import builtins
+from dcs_simulation_engine.core.simulation_graph.constants import (
+    VALIDATOR_SYSTEM_TEMPLATE,
+)
 from dcs_simulation_engine.utils.serde import SerdeMixin
 
 
@@ -252,3 +255,39 @@ class GraphConfig(SerdeMixin, BaseModel):
         if not cfg:
             return None
         return cfg.get("system_prompt_template")
+
+
+class SubgraphConfig(SerdeMixin, BaseModel):
+    """Configuration for a subgraph within the simulation engine."""
+
+    validator: Node
+    updater: Node
+
+    @model_validator(mode="after")
+    def subgraph_config(self) -> "SubgraphConfig":
+        """Initialize default validator and updater."""
+        if self.validator is None:
+            self.validator = Node(
+                name="subgraph_validator",
+                kind="custom",
+                provider="openrouter",
+                model="openai/gpt-5-mini",
+                system_template=VALIDATOR_SYSTEM_TEMPLATE,
+                kwargs={
+                    "timeout": 30,  # or httpx.Timeout for more control
+                    "max_retries": 2,  # provider level retries
+                },
+            )
+        if self.updater is None:
+            self.updater = Node(
+                name="subgraph_updater",
+                kind="custom",
+                provider="openrouter",
+                model="openai/gpt-5-mini",
+                system_template=UPDATER_SYSTEM_TEMPLATE,
+                kwargs={
+                    "timeout": 30,  # or httpx.Timeout for more control
+                    "max_retries": 2,  # provider level retries
+                },
+            )
+        return self
