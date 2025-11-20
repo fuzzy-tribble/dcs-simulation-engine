@@ -157,7 +157,13 @@ def test_simple_graph(tmp_path: Path) -> None:
 
     g = graph.cgraph.get_graph()
     node_names = set(g.nodes.keys())
-    assert node_names == {"__start__", "agent1", "agent2", "__end__"}
+    assert node_names == {
+        "__start__",
+        "agent1",
+        "agent2",
+        "__end__",
+        "__SIMULATION_SUBGRAPH__",
+    }
 
 
 @pytest.mark.slow
@@ -259,6 +265,7 @@ def test_conditional_graph(tmp_path: Path) -> None:
         "agentA",
         "agentB",
         "__end__",
+        "__SIMULATION_SUBGRAPH__",
     }
 
 

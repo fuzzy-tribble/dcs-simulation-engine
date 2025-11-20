@@ -21,7 +21,8 @@ from dcs_simulation_engine.core.simulation_graph import GraphConfig
 from dcs_simulation_engine.helpers import database_helpers as dbh
 from dcs_simulation_engine.utils.serde import SerdeMixin
 
-# TODO: warn if save_runs is false on a game config that uses player_id, runs, ...queries
+# TODO: warn if save_runs is false on a game config
+# that uses player_id, runs, ...queries
 
 
 class ValiditySelector(BaseModel):

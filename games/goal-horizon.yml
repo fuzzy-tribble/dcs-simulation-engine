@@ -73,11 +73,11 @@ data_collection_settings:
 character_settings:
   pc:
     valid:
-      characters:
-        where:
-          "$or":
-            - { "hid": "human-normative" }
-            - { "common_descriptors": { "$regex": /human/i } }
+      characters: {}
+        # where:
+        #   "$or":
+        #     - { "hid": "human-normative" }
+        #     - { "common_descriptors": { "$regex": /human/i } }
   npc:
     valid:
       characters:
@@ -96,147 +96,7 @@ character_settings:
 graph_config:      
   name: goal_horizon_graph
   description: A graph for interacting with a character to understand a characters goals over multiple interactions.
-  nodes:
-    # - name: start_message
-    #   kind: builtin.message
-    # - name: exit_message
-    #   kind: builtin.message
-    # - name: complete_message
-    #   kind: builtin.message
-    # - name: help_message
-    #   kind: builtin.message
-    - name: checkpoint
-      kind: custom
-      provider: openrouter
-      model: deepseek/deepseek-chat-v3-0324
-      system_template: |
-        Your task is to validate whether the character's next action is valid according to the following rubric:
-
-          1.	Feasibility Rule: The action must be physically and logically possible according to the game world and character abilities. Reject if its not feasible.
-          2.	In-Character Rule: The action must be consistent with the character’s abilities. Reject if it’s out of character, uses abilities the character doesn't have.
-          3.	Relevance Rule: The action must be on-topic and make sense in context.
-          4.	Explicit Action or Sensing: The player must clearly describe what the character does or which sense they use (sight, hearing, smell, etc.).
-          5.	No Meta or Vague Actions: Reject vague or omniscient actions such as “I figure out where I am” or “I learn everything about the room.” Actions must be concrete and specific.
-          6.	No Adversarial Inputs: Reject harmful, disruptive, or game-breaking actions.
-          7.  Actions shouldn't be overly complex: Reject long, complex, multi-step actions. Actions are intended to represent a single step in a turn taking exchange.
-          8.  End Game Condition: If the action indicates the PC is leaving or ending the interaction or has tried more than 2 times to create a correct action set "end_game" to true.
-
-        ----
-
-        {% if message_draft.role == 'pc' %}
-        PC Abilities:
-        {{pc.abilities}}
-        {% elif message_draft.role == 'npc' %}
-        NPC Abilities:
-        {{npc.abilities}}
-        {% endif %}
-
-        The actions taken so far are:
-        {{messages}}
-
-        Output format: {
-            "valid": bool,                   # is the proposed action valid?
-            "reason": str?                   # if invalid, provide reason
-          }
-    # - name: update
-    #   kind: custom
-    #   provider: openrouter
-    #   model: openai/gpt-oss-20b:free
-    #   system_template: |
-
-    #     {% if len(messages) == 0 %}
-    #       You are to set up an interaction between two characters: USER and UCS.
-
-    #       Write a 1 sentence opener describing a real-life setting where the characters USER and UCS might naturally end up near each other based on their chracter profiles. Do not initiate contact. Just set the scene that could lead to a natural interaction.
-
-    #       •	Do NOT reveal or hint what type characters are (species, form, etc.).
-    #       •	Do NOT reveal or interpret abilities, intentions, or emotions—only describe visible actions or words.
-    #       •	Use ONLY the abilities listed for each character—do not invent new ones.
-    #       •	Do NOT include any references to stages, plays, or performances.
-        
-    #       PC's Abilities:
-    #       {{pc.abilities}}
-
-    #       NPC's Abilities:
-    #       {{npc.abilities}}
-
-    #     {% else %}
-    #       Role-play as the character NPC in a scene with the PC:
-    #       •	Stay fully in character as NPC.
-    #       •	Only describe actions or expressions possible using the abilities listed for NPC below.
-    #       •	If an action or form of communication is not on the list, you must not use it (e.g., no speech if non-verbal).
-    #       •	Do NOT invent new abilities.
-    #       •	Do NOT describe the PC or act for them — wait for their input.
-    #       •	Do NOT reveal or hint at NPC’s type, abilities, goals, or thoughts.
-    #       •	Silence or stillness is allowed if no valid ability applies.
-
-    #       NPC's Abilities:
-    #       {{npc.abilities}}
-    #     {% endif %}}
-        
-    #     Interaction actions so far:
-    #     {{messages}}  
-    # - name: end_form
-    #   kind: builtin.form
-    #   config:
-    #     title: End of Interaction Survey
-    #     description: Please fill out this survey about your understanding of the NPC's goals to complete the game.
-    #     fields:
-    #       - name: goal_types
-    #         kind: text
-    #         label: What do you believe are the primary goal types of the NPC?
-    #         required: true
-    #       - name: goal_bounds
-    #         kind: text
-    #         label: What do you believe are the bounds or limits of the NPC's goals?
-    #         required: true
-    #       - name: goal_structure
-    #         kind: text
-    #         label: How would you describe the structure or hierarchy of the NPC's goals?
-    #         required: true
+  nodes: []
   edges:
     - from: __START__
       to: __END__
-  # # TODO: verify end_form flow
-  #   - from: __START__
-  #     to: 
-  #       conditional:
-  #         - if: "((lifecycle_status == 'ENTER'))"
-  #           then: start_message
-  #         - if: "((lifecycle_status == 'EXIT'))"
-  #           then: exit_message
-  #         - if: "((lifecycle_status == 'COMPLETE'))"
-  #           then: complete_message
-  #         - if: "((lifecycle_status == 'HELP'))"
-  #           then: help_message
-  #         - if: "((lifecycle_status == 'UPDATE'))"
-  #           then: checkpoint
-          
-  #   - from: start_message
-  #     to: checkpoint
-
-  #   - from: exit_message
-  #     to: __END__
-
-  #   - from: complete_message
-  #     to: end_form
-
-  #   - from: end_form
-  #     to: __END__
-
-  #   - from: help_message
-  #     to: __END__
-
-  #   - from: checkpoint
-  #     to:
-  #       conditional:
-  #         - if: "${valid} == false and ${retries} < ${retry_limits[message_draft.role]}"
-  #           then: builtin.retry
-  #         - elif: "${valid} == false and ${retries} > ${retry_limits[message_draft.role]}"
-  #           then: exit_message
-  #         - elif: "${valid} == true and ${message_draft.role} == 'npc'"
-  #           then: __END__
-  #         - else: update
-
-  #   - from: update
-  #     to: checkpoint

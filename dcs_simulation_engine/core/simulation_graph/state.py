@@ -65,6 +65,7 @@ def make_state(overrides: dict[str, Any] | None = None) -> SimulationGraphState:
         "simulator_output": None,
         "user_retry_budget": 6,
         "forms": None,
+        "scratchpad": None,
     }
 
     # Warn & drop unknown override keys

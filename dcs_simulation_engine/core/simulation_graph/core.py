@@ -397,7 +397,8 @@ class SimulationGraph:
 
         - Validates Jinja templates at build time (not first run).
         - Enforces the presence of an "Output Format: {}" in system_templates.
-        - Returns a callable that accepts a full SimulationGraphState and returns an updated one.
+        - Returns a callable that accepts a full SimulationGraphState and
+        returns an updated one.
         """
         # ----- Validate Jinja Fields  -----
 

@@ -8,11 +8,14 @@ from rich.console import Console
 from dcs_simulation_engine.cli.configuration import load_theme
 from dcs_simulation_engine.core.run_manager import RunManager
 
+# TODO: consider adding game setup intro like the ascii art banner,
+# game name, description, pc, npc, etc.
+
 
 def _render_step(
     run: RunManager,
     console: Console,
-    theme,
+    theme: dict[str, str],
     user_input: str,
 ) -> None:
     """Run one simulation step and render all resulting events."""

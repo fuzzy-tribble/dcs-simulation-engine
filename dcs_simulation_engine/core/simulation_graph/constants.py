@@ -1,5 +1,7 @@
 """Simulation graph constants."""
 
+# ruff: noqa
+
 # tune as needed to log runtime warnings for large states/prompts/long runs
 LARGE_STATE_WARN_BYTES = 100_000
 LARGE_PROMPT_WARN_BYTES = 50_000
@@ -105,6 +107,6 @@ Next Proposed action:
 
 Output format: {
     "type": str    # error if invalid, info if valid
-    "content": str # brief explanation of why the action is invalid, or "Valid action" if valid
+    "content": str # brief explanation of why the action is invalid, or "Valid action"
   }
 """
