@@ -48,26 +48,28 @@ The [Project Wiki](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki))
 
 ## How can I use it?
 
-### Option 1 - Try the [web demo](https://dcs-simulation-demo.fly.dev/) online or participate in any of our live games
-We host a demo you can play with. It hosts a game called "Explore" which is a lightweight game with no objectives or data collection that lets you get just engage freely with any characters you'd like. Live games appear on the [DCS main github page](https://github.com/diverse-cognitive-systems-group)
+### Option 1 - Try the [web demo](https://dcs-simulation-demo.fly.dev/) online or join a live game
+Play the lightweight Explore demo at the link above. It has no objectives or data collection — just freeform interaction with any character you choose.
+
+We also host periodic live games listed on the [DCS main github page](https://github.com/diverse-cognitive-systems-group). These games are part of live research studies/experiemnts that we collect data from. You click the link, consent to be a research participant, and play the game online in your browser.
 
 <img src="images/web-demo.png" alt="Web Demo">
 
-### Option 2 - Add/modify characters and/or build your own games/experiments
-Install the dcs-simulation-engine package, create a new game or modify an existing one, test it locally then use the deploy script to launch it for others to play.
+### Option 2 - Build your own games
+Install the `dcs-simulation-engine` package from PyPI, create a new game or modify an existing one, test it locally then use the deploy script to launch it for others to play.
 
-Alternatively, you can see the see the [Contributing Guide](CONTRIBUTING.md) for instructions on how to setup/run the codebase locally. This option is for users who want to contribute, try different graph architectures, local scenario orchestration models, prompts, etc.
+```bash
+>> poetry add dcs-simulation-engine
 
-#### Example CLI session
-<img src="images/cli-demo.png" alt="CLI Demo">
+>> dcs --help
 
-#### Example Notebook session
-<img src="images/nb-demo.png" alt="Notebook Demo">
+>> dcs create-game --name new-game-name
+```
+
+If you want deeper access — customizing or analyzing characters, experimenting with simulation orchestration graphs, or testing different models — check out the [Contributing Guide](CONTRIBUTING.md). It walks you through setting up the full codebase locally and contributing code, features, or documentation.
 
 ## Future Directions
 **Extending the character and scenario space**: The simulation engine currently supports a carefully curated set of characters and scenarios, designed to represent a diverse range of cognitive systems—from basal intelligence and human neurodivergence to temporary disabilities, robotic agents, and even alien-like intelligences. Each has been rigorously quality-checked to ensure their representation is high quality. As new use cases emerge and scenarios grow in complexity, we aim to expand this character and scenario space while maintaining the same high standards of quality and realism.
-
-**Consider Bi-Directional Goal Inference**: Currently, the simulation engine focuses on one-way goal inference, where the participant infers the goals of the simulated character. While this is sufficient for many applications, in the future, we would like to explore if bi-directional goal inference, where both the participant and the simulated character attempt to infer each other's goals could add value.
 
 **Extending beyond narrative interface**: While the simulation engine’s core reasoning remains language-based (as explained in the Wiki), the top-level orchestration agent uses a modular, multi-modal agent graph. This design allows additional agents, models, and I/O interfaces to be integrated seamlessly.
 
@@ -79,7 +81,7 @@ For example, the system might normally generate a line such as “I whistle soft
 - [Contributing Guide](CONTRIBUTING.md) - how to contribute to the project
 - [Project Wiki](https://github.com/fuzzy-tribble/dcs-simulation-engine/wiki) - background information on the project
 - [Codebase Docs](https://fuzzy-tribble.github.io/dcs-simulation-engine/) - documentation for the codebase
-- [Web Demo](https://simulation-engine-widget-demo.fly.io) - try the simulation engine online
-- [API Demo](https://simulation-engine-api-demo.fly.io/redoc) - try the simulation engine API online
+- [Web Demo](https://dcs-simulation-demo.fly.dev/) - try the simulation engine online
+- [API Demo](https://dcs-simulation-demo.fly.io/redoc) - try the simulation engine API online
 - [Analysis Notebooks](analysis_notebooks/) - Jupyter notebooks containing anonymized analysis of simulation sessions
 - [Contact](mailto:mworkman9@gatech.edu) - get in touch with the maintainers for questions, suggestions, etc. using the "Issues" tab on GitHub or email

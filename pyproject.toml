@@ -31,12 +31,18 @@ dependencies = [
   "gradio (>=5.49.1,<6.0.0)",
 ]
 
+[project.scripts]
+dcs = "dcs_simulation_engine.scripts:main"
+
 [project.urls]
 Homepage = "https://github.com/diverse-cognitive-systems-group/dcs-simulation-engine"
 Issues = "https://github.com/diverse-cognitive-systems-group/dcs-simulation-engine/issues"
 
 [tool.poetry]
 packages = [{ include = "dcs_simulation_engine" }]
+
+[tool.setuptools.package-data]
+dcs_simulation_engine = ["games/**/*", ".env.example"]
 
 [tool.poetry.dependencies]
 poetry = "^2.1.0"
